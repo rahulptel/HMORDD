@@ -1,0 +1,22 @@
+# @package _global_
+
+prob:
+  name: setpacking
+  size: "3-100" # Example size, will be overridden by command line or other configs
+  n_objs: 2 # Number of objectives
+  n_vars: 7 # Number of variables (items)
+  n_constraints: 3 # Number of constraints (bins)
+  pf_enum_method: "bfs" # Placeholder, might not be used by NSGA-II directly
+
+nsga2:
+  n_generations: 100 # Number of generations
+  pop_size: 100 # Population size
+  crossover_prob: 0.9 # Crossover probability
+  mutation_prob: 0.1 # Mutation probability
+
+split: "train" # train, val, test
+seed: 42
+from_pid: 0
+to_pid: 100 # Number of instances to process
+n_processes: 1 # Number of parallel processes
+time_limit: 3600 # Time limit for each instance in seconds

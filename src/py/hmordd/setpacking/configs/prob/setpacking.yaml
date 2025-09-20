@@ -1,0 +1,26 @@
+name: setpacking
+n_vars: 100
+n_objs: 3
+size: ${prob.n_objs}-${prob.n_vars}
+
+problem_type: 2
+# 0: Do nothing
+# 1: Minimize bandwidth
+preprocess: false
+# 1: top-down
+# 2: bottom-up (not working)
+# 3: coupled
+pf_enum_method: 1
+# Is problem is maximization form
+maximization: true
+# Dominance strategy
+dominance: false
+# BDD Type
+# 0: Exact
+# 1: Restricted
+bdd_type: 0
+# Only used when bdd_type > 0
+maxwidth: 0
+order_type: min_state
+# Graph type for Set Packing/Independent Set problem
+graph_type: stidsen

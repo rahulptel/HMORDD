@@ -1,0 +1,34 @@
+# @package _global_
+
+prob:
+  name: setpacking
+  n_vars: 100
+  n_objs: 3
+  vars_per_con: 3
+  obj_lb: 1
+  obj_ub: 100
+  pf_enum: 3
+  node_select: 1
+  size: "${prob.n_objs}-${prob.n_vars}" # Dynamically set size
+
+nsga2:
+  seed: 42
+  cutoff: "restrict" # NSGAII cutoff time
+
+run:
+  from_pid: 0
+  to_pid: 100
+  split: "train" # train, test, or val
+  n_processes: 1 # Default to single process
+
+algorithm:
+  name: nsga2
+
+# Paths configuration (assuming hmordd.Paths is used)
+paths:
+  root: ${oc.env:HOME}/Documents/phd/HMORDD
+  resources: ${paths.root}/resources
+  instances: ${paths.resources}/instances
+  outputs: ${paths.root}/outputs
+  sols: ${paths.outputs}/sols
+  dds: ${paths.outputs}/dds

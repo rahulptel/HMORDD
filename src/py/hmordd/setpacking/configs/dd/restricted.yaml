@@ -1,0 +1,11 @@
+# Parameters for restricted DD
+type: restricted
+width: 50 # Max width percentage for restricted DD
+nosh:
+  # rule: max # For NOSHRuleCardinality: 'min' or 'max'
+  # Cpp uses an integer parameter and does the node selection
+  # internally
+  # 1: Sort in descending order of cardinality
+  # 2: Sort in ascending order cardinality
+  # Any other int: Defaults to 1
+  rule: 1

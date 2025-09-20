@@ -1,0 +1,24 @@
+defaults:
+  - _self_
+  - prob: setpacking
+  - dd: exact # Can be 'exact' or 'restricted'
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+from_pid: 0
+to_pid: 1000
+n_processes: 1
+split: train
+dd_type: ${dd.type}
+seed: 7
+
+# Time limit to compute the Pareto frontier
+time_limit: 1800
+
+
+trial_seeds: [7, 8, 9, 10, 11]
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
