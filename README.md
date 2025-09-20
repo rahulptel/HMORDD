@@ -52,8 +52,8 @@ The set packing package demonstrates the expected structure for a problem class:
    ```bash
    cd src/cpp/setpacking
    bash makelibcmd.sh
-   mkdir -p ../../resources/bin/setpacking
-   mv libsetpackingenvo*.so ../../resources/bin/setpacking/
+   mkdir -p ../../../resources/bin/setpacking
+   mv libsetpackingenvo*.so ../../../resources/bin/setpacking/
    ```
 
 2. **Generate instances**
