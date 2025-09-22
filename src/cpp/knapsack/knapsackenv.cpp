@@ -2,11 +2,12 @@
 
 #include <algorithm>
 
-namespace {
-std::vector<int> extract_state(Node *node)
+namespace
 {
-    return node->weight;
-}
+    std::vector<int> extract_state(Node *node)
+    {
+        return node->weight;
+    }
 }
 
 KnapsackEnv::KnapsackEnv()
@@ -327,6 +328,11 @@ int KnapsackEnv::compute_pareto_frontier()
     if (method == 1)
     {
         pareto_frontier = BDDMultiObj::pareto_frontier_topdown(bdd, maximization, 1, dominance, &statsMultiObj);
+    }
+    else if (method == 3)
+    {
+        // -- Dynamic layer cutset -- (knapsack problem type = 1)
+        pareto_frontier = BDDMultiObj::pareto_frontier_dynamic_layer_cutset(bdd, maximization, 1, dominance, &statsMultiObj);
     }
     else
     {
