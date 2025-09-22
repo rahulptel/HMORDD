@@ -54,6 +54,9 @@ public:
     /** Register a new statistic. The initial value is 0 by default */
     int register_name(const char* name, long int initial_value = 0);
 
+    /** Reset timer for a time statistic */
+    void reset_timer(int id);
+
     /** Start timer for a time statistic */
     void start_timer(const char* name);
 
@@ -119,6 +122,12 @@ inline int Stats::register_name(const char* name, long int initial_value) {
     value.push_back(initial_value);
     timer_start.push_back(clock());
     return value.size()-1;
+}
+
+
+inline void Stats::reset_timer(int id) {
+    assert( id >= 0 && id < (int)value.size() );
+    value[id] = 0;
 }
 
 
