@@ -40,6 +40,9 @@ class SetPackingDDManager(DDManager):
             self.frontier = None
             self.time_frontier = time_limit
         signal.alarm(0)
+
+    def get_decision_diagram(self):
+        return self.env.get_dd()
     
     
 class SetPackingExactDDManager(SetPackingDDManager):

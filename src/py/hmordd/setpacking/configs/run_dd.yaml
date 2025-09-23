@@ -11,6 +11,7 @@ n_processes: 1
 split: train
 dd_type: ${dd.type}
 seed: 7
+save_dd: false
 
 # Time limit to compute the Pareto frontier
 time_limit: 1800
