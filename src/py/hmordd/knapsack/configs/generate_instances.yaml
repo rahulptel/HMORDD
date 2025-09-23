@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+n_objs: 3
+n_vars: 100
+size: null
+
+n_train: 1000
+n_val: 100
+n_test: 100
+
+seed: 7
+
+obj_lb: 1
+obj_ub: 1000
+cons_lb: 1
+cons_ub: 100
+
+inst_type: uncorr
+zip_output: false
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
