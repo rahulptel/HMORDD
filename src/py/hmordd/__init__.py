@@ -26,3 +26,5 @@ class Paths:
     
 # Add the bin directory to the python path to find the C++ binaries
 sys.path.append(str(Paths.bin / "setpacking"))
+sys.path.append(str(Paths.bin / "knapsack"))
+sys.path.append(str(Paths.bin / "tsp"))
