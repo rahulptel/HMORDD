@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 import zipfile
 
 from hmordd import Paths
 from hmordd.knapsack import PROB_NAME, PROB_PREFIX
+
+
+def get_env(n_objs: int):
+    module_name = f"libknapsackenvo{n_objs}"
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        try:
+            module = importlib.import_module("libknapsackenv")
+        except ImportError as exc:
+            raise ImportError(
+                f"Could not import knapsack environment for {n_objs} objectives."
+            ) from exc
+    return module.KnapsackEnv()
 
 
 def get_instance_path(size: str, split: str, seed: int, pid: int) -> Path:
@@ -44,6 +59,8 @@ def _read_dat(content: str) -> dict:
 
     weight = [int(v) for v in lines[offset].split()]
     capacity = int(lines[offset + 1])
+    cons_coeffs = [weight]
+    rhs = [capacity]
 
     return {
         "n_vars": n_vars,
@@ -52,7 +69,9 @@ def _read_dat(content: str) -> dict:
         "value": values,
         "weight": weight,
         "capacity": capacity,
+        "cons_coeffs": cons_coeffs,
+        "rhs": rhs,
     }
 
 
-__all__ = ["get_instance_data", "get_instance_path"]
+__all__ = ["get_env", "get_instance_data", "get_instance_path"]
