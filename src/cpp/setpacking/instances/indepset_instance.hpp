@@ -229,7 +229,8 @@ inline IndepSetInst::IndepSetInst(int n_vars, vector<vector<int>> edges, vector<
 {
 	graph = new Graph(n_vars);
 
-	for (int i = 0; i < edges.size(); ++i)
+	const int edge_count = static_cast<int>(edges.size());
+	for (int i = 0; i < edge_count; ++i)
 	{
 		graph->add_edge(edges[i][0], edges[i][1]);
 	}
@@ -262,6 +263,5 @@ inline IndepSetInst::IndepSetInst(int n_vars, vector<vector<int>> edges, vector<
 
 
 #endif /* THISANCE_HPP_ */
-
 
 

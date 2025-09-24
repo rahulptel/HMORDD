@@ -74,13 +74,14 @@ inline void BDDAlg::reduce(BDD* bdd) {
 		// add nodes back to layer, fixing indices
 		BOOST_FOREACH(node_map::value_type it, states) {
 			bdd->layers[l].push_back(it.second);
-			bdd->layers[l].back()->index = bdd->layers[l].size()-1;
+			bdd->layers[l].back()->index = static_cast<int>(bdd->layers[l].size()) - 1;
 		}
 	}
 
 	// fix indices and incoming arcs
 	for (int l = bdd->num_layers-1; l >= 0; --l) {
-		for (int i = 0; i < bdd->layers[l].size(); ++i) {
+		const int layer_size = static_cast<int>(bdd->layers[l].size());
+		for (int i = 0; i < layer_size; ++i) {
 			Node* node = bdd->layers[l][i];
 			node->index = i;
 
@@ -97,5 +98,4 @@ inline void BDDAlg::reduce(BDD* bdd) {
 
 
 #endif 
-
 

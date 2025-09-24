@@ -9,6 +9,7 @@
 #define EPS 0.0001
 
 #include <algorithm>
+#include <cstddef>
 #include <iostream>
 #include <fstream>
 #include <limits>
@@ -99,7 +100,7 @@ public:
     // Destructor
     ~ParetoFrontierManager()
     {
-        for (int i = 0; i < frontiers.size(); ++i)
+        for (int i = 0, end = static_cast<int>(frontiers.size()); i < end; ++i)
         {
             delete frontiers[i];
         }
@@ -136,7 +137,8 @@ inline void ParetoFrontier::add(ObjType *elem)
     bool must_add = true;
     bool dominates;
     bool dominated;
-    for (int i = 0; i < sols.size(); i += NOBJS)
+    const int end = static_cast<int>(sols.size());
+    for (int i = 0; i < end; i += NOBJS)
     {
         // check status of foreign solution w.r.t. current frontier solution
         dominates = true;
@@ -209,14 +211,15 @@ inline bool AdominatesB<0>(const ObjType *v1, const ObjType *v2)
 inline void ParetoFrontier::merge(const ParetoFrontier &frontier)
 {
     // last position to check
-    int end = sols.size();
+    const int end = static_cast<int>(sols.size());
     // if current solution set was modified
     bool modified = false;
     // add each solution from frontier set
     bool must_add;
     bool dominates;
     bool dominated;
-    for (int j = 0; j < frontier.sols.size(); j += NOBJS)
+    const int frontier_end = static_cast<int>(frontier.sols.size());
+    for (int j = 0; j < frontier_end; j += NOBJS)
     {
         must_add = true; // if solution must be added to set
         for (int i = 0; i < end; i += NOBJS)
@@ -288,14 +291,15 @@ inline void ParetoFrontier::merge(const ParetoFrontier &frontier)
 inline void ParetoFrontier::merge(const ParetoFrontier &frontier, const ObjType *shift)
 {
     // last position to check
-    int end = sols.size();
+    const int end = static_cast<int>(sols.size());
     // if current solution set was modified
     // bool modified = false;
     // add each solution from frontier set
     bool must_add;
     bool dominates;
     bool dominated;
-    for (int j = 0; j < frontier.sols.size(); j += NOBJS)
+    const int frontier_end = static_cast<int>(frontier.sols.size());
+    for (int j = 0; j < frontier_end; j += NOBJS)
     {
         // update auxiliary
         for (int o = 0; o < NOBJS; ++o)
@@ -370,7 +374,8 @@ inline void ParetoFrontier::merge(const ParetoFrontier &frontier, const ObjType 
 //
 inline void ParetoFrontier::print() const
 {
-    for (int i = 0; i < sols.size(); i += NOBJS)
+    const int sols_end = static_cast<int>(sols.size());
+    for (int i = 0; i < sols_end; i += NOBJS)
     {
         cout << "(";
         for (int o = 0; o < NOBJS - 1; ++o)
@@ -392,7 +397,7 @@ inline void ParetoFrontier::remove_empty()
         return;
     }
     // find first non-dominated element
-    int last = sols.size() - NOBJS;
+    int last = static_cast<int>(sols.size()) - NOBJS;
     while (last >= 0 && sols[last] == DOMINATED)
     {
         last -= NOBJS;
@@ -427,7 +432,8 @@ inline void ParetoFrontier::convolute(const ParetoFrontier &fA, const ParetoFron
 {
     if (fA.sols.size() < fB.sols.size())
     {
-        for (int j = 0; j < fA.sols.size(); j += NOBJS)
+        const int sizeA = static_cast<int>(fA.sols.size());
+        for (int j = 0; j < sizeA; j += NOBJS)
         {
             std::copy(fA.sols.begin() + j, fA.sols.begin() + j + NOBJS, auxB);
             merge(fB, auxB);
@@ -435,7 +441,8 @@ inline void ParetoFrontier::convolute(const ParetoFrontier &fA, const ParetoFron
     }
     else
     {
-        for (int j = 0; j < fB.sols.size(); j += NOBJS)
+        const int sizeB = static_cast<int>(fB.sols.size());
+        for (int j = 0; j < sizeB; j += NOBJS)
         {
             std::copy(fB.sols.begin() + j, fB.sols.begin() + j + NOBJS, auxB);
             merge(fA, auxB);
@@ -467,12 +474,13 @@ struct SolComp
 inline void ParetoFrontier::sort_decreasing()
 {
     const int num_sols = get_num_sols();
-    while (elems.size() < num_sols)
+    while (elems.size() < static_cast<std::size_t>(num_sols))
     {
         elems.push_back(new ObjType[NOBJS]);
     }
     int ct = 0;
-    for (int i = 0; i < sols.size(); i += NOBJS)
+    const int sols_size = static_cast<int>(sols.size());
+    for (int i = 0; i < sols_size; i += NOBJS)
     {
         std::copy(sols.begin() + i, sols.begin() + i + NOBJS, elems[ct++]);
     }
@@ -490,10 +498,11 @@ inline void ParetoFrontier::sort_decreasing()
 //
 inline bool ParetoFrontier::check_consistency()
 {
-    for (int i = 0; i < sols.size(); i += NOBJS)
+    const int sols_size_check = static_cast<int>(sols.size());
+    for (int i = 0; i < sols_size_check; i += NOBJS)
     {
         assert(sols[i] != DOMINATED);
-        for (int j = i + NOBJS; j < sols.size(); j += NOBJS)
+        for (int j = i + NOBJS; j < sols_size_check; j += NOBJS)
         {
             // check status of foreign solution w.r.t. current frontier solution
             bool dominates = true;
@@ -520,7 +529,8 @@ inline bool ParetoFrontier::check_consistency()
 inline ObjType ParetoFrontier::get_sum()
 {
     ObjType sum = 0;
-    for (int i = 0; i < sols.size(); ++i)
+    const int sols_size = static_cast<int>(sols.size());
+    for (int i = 0; i < sols_size; ++i)
     {
         sum += sols[i];
     }
@@ -533,7 +543,8 @@ inline ObjType ParetoFrontier::get_sum()
 inline bool ParetoFrontier::is_sol_dominated(const ObjType *sol, const ObjType *shift)
 {
     bool dominated = false;
-    for (int i = 0; i < sols.size() && !dominated; i += NOBJS)
+    const int sols_size = static_cast<int>(sols.size());
+    for (int i = 0; i < sols_size && !dominated; i += NOBJS)
     {
         dominated = AdominatedB<NOBJS>(sol, &sols[i]);
     }

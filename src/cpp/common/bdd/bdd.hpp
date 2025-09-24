@@ -299,7 +299,8 @@ inline void BDD::fix_indices()
 {
 	for (int l = 0; l < num_layers; ++l)
 	{
-		for (int i = 0; i < layers[l].size(); ++i)
+		const int layer_size = static_cast<int>(layers[l].size());
+		for (int i = 0; i < layer_size; ++i)
 		{
 			layers[l][i]->index = i;
 		}
@@ -312,7 +313,8 @@ inline void BDD::fix_indices()
 inline void BDD::fix_indices(int l)
 {
 	assert(l < num_layers);
-	for (int i = 0; i < layers[l].size(); ++i)
+	const int layer_size = static_cast<int>(layers[l].size());
+	for (int i = 0; i < layer_size; ++i)
 	{
 		layers[l][i]->index = i;
 	}
@@ -326,7 +328,7 @@ inline size_t BDD::get_num_nodes()
 	int num_nodes = 0;
 	for (int l = 0; l < num_layers; ++l)
 	{
-		num_nodes += layers[l].size();
+		num_nodes += static_cast<int>(layers[l].size());
 	}
 	return num_nodes;
 }
@@ -336,7 +338,8 @@ inline size_t BDD::get_arcs_count()
 	size_t num_arcs = 0;
 	for (int l = 0; l < num_layers; ++l)
 	{
-		for (int m = 0; m < layers[l].size(); ++m)
+		const int layer_size = static_cast<int>(layers[l].size());
+		for (int m = 0; m < layer_size; ++m)
 		{
 			if (layers[l][m]->arcs[0] != NULL)
 			{
@@ -366,7 +369,8 @@ inline size_t BDD::get_total_in_degree()
 	size_t total_in_degree = 0;
 	for (int l = 0; l < num_layers; ++l)
 	{
-		for (int m = 0; m < layers[l].size(); ++m)
+		const int layer_size = static_cast<int>(layers[l].size());
+		for (int m = 0; m < layer_size; ++m)
 		{
 			total_in_degree += layers[l][m]->prev[0].size() + layers[l][m]->prev[1].size();
 		}
@@ -380,9 +384,10 @@ inline vector<size_t> BDD::get_in_degree()
 	unsigned int ind;
 	for (int l = 0; l < num_layers; ++l)
 	{
-		for (int m = 0; m < layers[l].size(); ++m)
+		const int layer_size = static_cast<int>(layers[l].size());
+		for (int m = 0; m < layer_size; ++m)
 		{
-			ind = layers[l][m]->prev[0].size() + layers[l][m]->prev[1].size();
+			ind = static_cast<unsigned int>(layers[l][m]->prev[0].size() + layers[l][m]->prev[1].size());
 			in_degree.push_back(ind);
 		}
 	}
@@ -486,7 +491,7 @@ inline void BDD::remove_dangling_nodes()
 	{
 		int k = 0;
 		int removed = 0;
-		while (k < layers[l].size())
+		while (k < static_cast<int>(layers[l].size()))
 		{
 			if (layers[l][k]->status == 'F')
 			{
