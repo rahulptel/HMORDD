@@ -1,0 +1,6 @@
+name: tsp
+n_objs: 2
+n_vars: 20
+size: ${prob.n_objs}_${prob.n_vars}
+
+pf_enum_method: 3

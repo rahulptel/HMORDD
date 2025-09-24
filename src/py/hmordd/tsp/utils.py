@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import io
 from pathlib import Path
 import zipfile
@@ -10,6 +11,20 @@ import numpy as np
 
 from hmordd import Paths
 from hmordd.tsp import PROB_NAME, PROB_PREFIX
+
+
+def get_env(n_objs: int):
+    module_name = f"libtspenvo{n_objs}"
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        try:
+            module = importlib.import_module("libtspenv")
+        except ImportError as exc:
+            raise ImportError(
+                f"Could not import TSP environment for {n_objs} objectives."
+            ) from exc
+    return module.TSPEnv()
 
 
 def get_instance_path(size: str, split: str, seed: int, pid: int) -> Path:
@@ -37,7 +52,12 @@ def _load_npz(source) -> dict:
     with np.load(source) as data:
         coords = data["coords"]
         dists = data["dists"]
-    return {"coords": coords, "dists": dists}
+    return {
+        "coords": coords,
+        "dists": dists,
+        "n_objs": int(coords.shape[0]),
+        "n_vars": int(coords.shape[1]),
+    }
 
 
-__all__ = ["get_instance_data", "get_instance_path"]
+__all__ = ["get_env", "get_instance_data", "get_instance_path"]

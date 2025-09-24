@@ -1,0 +1,11 @@
+name: knapsack
+n_objs: 3
+n_vars: 50
+size: ${prob.n_objs}_${prob.n_vars}
+
+preprocess: false
+pf_enum_method: 1
+maximization: true
+dominance: 0
+bdd_type: 0
+maxwidth: 0

@@ -36,7 +36,7 @@ class DDManager:
     
     def reduce_dd(self, *args, **kwargs):
         raise NotImplementedError("Reduce method must be implemented in subclasses.")
-    
+
     def compute_frontier(self, time_limit=1800):
         try:
             signal.alarm(time_limit)
@@ -47,3 +47,6 @@ class DDManager:
             self.frontier = None
             self.time_frontier = time_limit
         signal.alarm(0)
+
+    def get_decision_diagram(self):
+        return None
