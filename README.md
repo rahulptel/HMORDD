@@ -42,7 +42,7 @@ The Python package orchestrates experiments and provides integration points for 
 The set packing package demonstrates the expected structure for a problem class:
 
 - **Configurations** – Hydra configuration files in `src/py/hmordd/setpacking/configs/` capture experiment parameters such as instance sizes (`generate_instances.yaml`), Pareto enumeration settings (`prob/setpacking.yaml`), and DD types (`dd/exact.yaml` and `dd/restricted.yaml`).
-- **Instance generation** – `generate_instances.py` produces synthetic instances following the Stidsen generator.  It stores training/validation/test splits under `resources/instances/setpacking/<n_objs>-<n_vars>/`.
+- **Instance generation** – `generate_instances.py` produces synthetic instances following the Stidsen generator.  Splits are now saved under `resources/instances/setpacking/<n_objs>_<n_vars>/`, matching the underscore naming used in the file prefix (`sp_<seed>_<n_objs>_<n_vars>_<pid>.dat`).
 - **Decision diagram runners** – `dd.py` implements `SetPackingDDManager` plus exact and restricted subclasses that call into the compiled C++ environment.  `run_dd.py` loads Hydra configs, fetches instances, builds the requested DD, enumerates the Pareto frontier, and saves frontier statistics under `outputs/`.
 - **Baselines and heuristics** – `common/nosh.py` contains reusable node-selection heuristics.  The `setpacking/nsga2.py` module currently stubs out an NSGA-II baseline that will be extended with a full evolutionary algorithm during future development.
 
@@ -57,11 +57,16 @@ The set packing package demonstrates the expected structure for a problem class:
    ```
 
 2. **Generate instances**
-   ```bash
-   cd src/py
-   python -m hmordd.setpacking.generate_instances
-   ```
-   Edit `configs/generate_instances.yaml` to control the number of variables, objectives, and dataset sizes.
+  ```bash
+  cd src/py
+  # Single configuration
+  python -m hmordd.setpacking.generate_instances
+
+  # Sweep over multiple sizes/objectives (Hydra multi-run)
+  python -m hmordd.setpacking.generate_instances --multirun \\
+      n_vars=100,150 n_objs=3,4,5,6,7 seed=42 n_train=0 n_val=0 n_test=100
+  ```
+  Edit `configs/generate_instances.yaml` to control the number of variables, objectives, dataset sizes, and sweep output behaviour (multi-runs now execute from the workspace root instead of creating Hydra's default `multirun/` directory).
 
 3. **Run decision diagram experiments**
    ```bash
