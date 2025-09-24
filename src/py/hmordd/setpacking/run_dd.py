@@ -34,9 +34,9 @@ class Runner:
     def _save_dd_stats(self, pid: int, dd_manager, dds_save_path: Path) -> None:
         stats = {
             "pid": [pid],
-            "total_nodes": [self._safe_get(dd_manager.env, "initial_node_count")],
-            "total_incoming_arcs": [self._safe_get(dd_manager.env, "initial_arcs_count")],
-            "width": [self._safe_get(dd_manager.env, "initial_width")],
+            "total_nodes": [self._safe_get(dd_manager.env, "get_total_nodes_count")],
+            "total_incoming_arcs": [self._safe_get(dd_manager.env, "get_total_incoming_arcs_count")],
+            "width": [self._safe_get(dd_manager.env, "get_width")],
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
@@ -52,9 +52,14 @@ class Runner:
             return None
         return build_time + frontier_time
 
-    def _safe_get(self, obj, attr):
+    def _safe_get(self, obj, attr=None):
         try:
-            return getattr(obj, attr)
+            if attr is None:
+                if callable(obj):
+                    return obj()
+                return obj
+            value = getattr(obj, attr)
+            return value() if callable(value) else value
         except Exception:
             return None
 
