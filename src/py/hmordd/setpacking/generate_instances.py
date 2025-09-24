@@ -1,6 +1,6 @@
 from pathlib import Path
-import hydra
 
+import hydra
 from hmordd.common.instances import generate_instances_for_problem
 from hmordd.setpacking.utils import PROB_NAME, PROB_PREFIX
 
@@ -59,8 +59,8 @@ def main(cfg):
         PROB_PREFIX,
         generate_instance_stidsen,
         write_to_file_stidsen,
-        size_delimiter="-",
-        file_delimiter="-",
+        size_delimiter="_",
+        file_delimiter="_",
         zip_output=cfg.zip_output,
     )
 
