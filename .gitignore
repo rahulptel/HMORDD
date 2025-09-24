@@ -207,4 +207,6 @@ __marimo__/
 
 
 outputs/
-resources/
+resources/*
+!resources/instances/
+!resources/instances/**
