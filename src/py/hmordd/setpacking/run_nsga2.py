@@ -1,10 +1,10 @@
-import multiprocessing as mp
 import time
 
 import hydra
 import numpy as np
 import pandas as pd
 from hmordd import Paths
+from hmordd.common.base_runner import BaseRunner
 from hmordd.setpacking.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -13,11 +13,6 @@ from pymoo.operators.mutation.bitflip import BitflipMutation
 from pymoo.operators.sampling.rnd import BinaryRandomSampling
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
-
-try:
-    import resource
-except ImportError:  # pragma: no cover - Windows compatibility
-    resource = None
 
 
 class SetPackingProblem(Problem):
@@ -49,28 +44,9 @@ class SetPackingProblem(Problem):
         out["G"] = np.dot(X, self.A.T) - 1
 
 
-class Runner:
+class Runner(BaseRunner):
     def __init__(self, cfg):
-        self.cfg = cfg
-        self._memory_limit_gb = getattr(cfg, "memory_limit_gb", 16)
-
-    def _set_memory_limit(self):
-        if resource is None:
-            return
-
-        if self._memory_limit_gb is None:
-            return
-
-        try:
-            limit_bytes = int(self._memory_limit_gb * (1024 ** 3))
-        except TypeError:
-            print(f"Invalid memory limit configuration: {self._memory_limit_gb}")
-            return
-
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
-        except (ValueError, OSError) as exc:
-            print(f"Unable to enforce memory limit of {self._memory_limit_gb} GB: {exc}")
+        super().__init__(cfg)
 
     def _get_save_path(self, save_type="sols"):
         if save_type == "sols":
@@ -279,23 +255,6 @@ class Runner:
                     run_seed,
                     self.cfg.inst_seed,
                 )
-
-    def run(self):
-        if self.cfg.n_processes == 1:
-            self.worker(0)
-        else:
-            pool = mp.Pool(processes=self.cfg.n_processes)
-            results = []
-
-            for rank in range(self.cfg.n_processes):
-                results.append(pool.apply_async(self.worker, args=(rank,)))
-
-            for result in results:
-                result.get()
-
-            pool.close()
-            pool.join()
-
 
 @hydra.main(config_path="./configs", config_name="run_nsga2.yaml", version_base="1.2")
 def main(cfg):
