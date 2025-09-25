@@ -11,7 +11,7 @@ N_OBJS_VALUES: Iterable[int] = range(3, 8)
 N_VARS_VALUES: Iterable[int] = (100, 150)
 CASES_PER_COMBINATION = 10
 INSTANCES_PER_CASE = 10
-SPLIT = "train"
+SPLIT = "test"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PY = PROJECT_ROOT / "src" / "py"
@@ -48,7 +48,7 @@ def generate_table_lines() -> list[str]:
 
 def main() -> None:
     lines = generate_table_lines()
-    TABLE_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    TABLE_PATH.write_text("\n".join(lines), encoding="utf-8")
     print(f"Wrote {len(lines)} cases to {TABLE_PATH}")
 
 
