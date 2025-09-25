@@ -1,7 +1,7 @@
 name: setpacking
 n_vars: 100
 n_objs: 3
-size: ${prob.n_objs}-${prob.n_vars}
+size: ${prob.n_objs}_${prob.n_vars}
 
 problem_type: 2
 # 0: Do nothing
