@@ -14,6 +14,11 @@ from pymoo.operators.sampling.rnd import BinaryRandomSampling
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
 
+try:
+    import resource
+except ImportError:  # pragma: no cover - Windows compatibility
+    resource = None
+
 
 class SetPackingProblem(Problem):
     def __init__(self, instance_data):
@@ -47,6 +52,25 @@ class SetPackingProblem(Problem):
 class Runner:
     def __init__(self, cfg):
         self.cfg = cfg
+        self._memory_limit_gb = getattr(cfg, "memory_limit_gb", 16)
+
+    def _set_memory_limit(self):
+        if resource is None:
+            return
+
+        if self._memory_limit_gb is None:
+            return
+
+        try:
+            limit_bytes = int(self._memory_limit_gb * (1024 ** 3))
+        except TypeError:
+            print(f"Invalid memory limit configuration: {self._memory_limit_gb}")
+            return
+
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        except (ValueError, OSError) as exc:
+            print(f"Unable to enforce memory limit of {self._memory_limit_gb} GB: {exc}")
 
     def _get_save_path(self, save_type="sols"):
         if save_type == "sols":
@@ -193,6 +217,7 @@ class Runner:
             print(f"Error saving statistics for PID {pid}: {e}")
 
     def worker(self, rank):
+        self._set_memory_limit()
         sols_save_path = self._get_save_path("sols")
 
         for pid in range(

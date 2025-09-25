@@ -10,6 +10,8 @@ to_pid: 100
 n_processes: 1
 split: train
 
+memory_limit_gb: 16
+
 # Seed controlling which instance files to load
 inst_seed: 42
 
