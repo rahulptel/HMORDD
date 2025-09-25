@@ -26,7 +26,7 @@ def build_command(n_objs: int, n_vars: int, pid_start: int, pid_end: int) -> str
         f"PYTHONPATH={pythonpath}:$PYTHONPATH "
         f"python -m hmordd.setpacking.run_dd "
         f"dd=exact prob.n_objs={n_objs} prob.n_vars={n_vars} "
-        f"prob.size={size_token} split={SPLIT} "
+        f"split={SPLIT} "
         f"from_pid={pid_start} to_pid={pid_end} n_processes=1"
     )
 
