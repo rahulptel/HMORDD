@@ -1,6 +1,7 @@
 import json
 import multiprocessing as mp
 from pathlib import Path
+from typing import Optional, Tuple
 
 import hydra
 import numpy as np
@@ -12,10 +13,45 @@ from hmordd.setpacking.dd import DDManagerFactory
 from hmordd.setpacking.utils import get_instance_data
 
 
+def _apply_resource_limits(max_memory_bytes: int) -> None:
+    """Apply soft and hard memory resource limits when supported.
+
+    Parameters
+    ----------
+    max_memory_bytes:
+        Maximum amount of address space the process is allowed to use in bytes.
+    """
+
+    try:
+        import resource
+    except ModuleNotFoundError:
+        print("Warning: 'resource' module not available; unable to enforce memory limits.")
+        return
+
+    def _set_limit(limit_const: Optional[int], limit_values: Tuple[int, int], description: str) -> None:
+        if limit_const is None:
+            print(f"Warning: Platform does not expose {description}; skipping limit.")
+            return
+        try:
+            resource.setrlimit(limit_const, limit_values)
+        except (ValueError, OSError) as exc:
+            print(f"Warning: Failed to set {description}: {exc}")
+
+    soft_hard_mem = (max_memory_bytes, max_memory_bytes)
+
+    _set_limit(getattr(resource, "RLIMIT_AS", None), soft_hard_mem, "memory limit")
+    _set_limit(getattr(resource, "RLIMIT_DATA", None), soft_hard_mem, "data segment limit")
+    _set_limit(getattr(resource, "RLIMIT_RSS", None), soft_hard_mem, "resident set size limit")
+
+
 class Runner:
     def __init__(self, cfg):
         self.cfg = cfg
         self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
+
+        # Apply resource limits: 16 GiB memory cap.
+        sixteen_gib = 16 * 1024 ** 3
+        _apply_resource_limits(sixteen_gib)
 
     def _get_save_path(self, save_type: str) -> Path:
         if save_type == "sols":
