@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from pprint import pprint
 
 import hydra
 import numpy as np
@@ -57,15 +58,32 @@ class Runner(BaseRunner):
         try:
             getter = getattr(env, method_name)
         except AttributeError:
-            return None
+            return -1
         try:
             return getter()
         except Exception:
-            return None
+            return -2
 
     def _save_frontier_stats(self, pid: int, dd_manager, sols_save_path: Path) -> None:
+        exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
+        exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+        try:
+            exact_pf = np.load(exact_sol_path)
+        except Exception as e:
+            print(f"Error loading exact Pareto front for PID {pid}: {e}")
+            exact_pf = None
+            
+        cardinality_result = self.metric_calculator.compute_cardinality(
+            true_pf=exact_pf,
+            approx_pf=dd_manager.frontier
+        )
+        pprint(cardinality_result)
+        
         stats = {
             "pid": [pid],
+            "cardinality": [cardinality_result['cardinality']],
+            "precision": [cardinality_result['precision']],
+            "cardinality_raw": [cardinality_result['cardinality_raw']],
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
@@ -111,8 +129,8 @@ class Runner(BaseRunner):
         sols_save_path = self._get_save_path("sols")
 
         self._save_dd_stats(pid, dd_manager, dds_save_path)
-        self._save_frontier_stats(pid, dd_manager, sols_save_path)
         self._save_frontier(pid, dd_manager, sols_save_path)
+        self._save_frontier_stats(pid, dd_manager, sols_save_path)
         self._maybe_save_dd(pid, dd_manager, dds_save_path)
 
     def worker(self, rank: int) -> None:
