@@ -1,5 +1,6 @@
 import json
 import multiprocessing as mp
+from pprint import pprint
 
 import hydra
 import numpy as np
@@ -78,14 +79,31 @@ class Runner:
         if build_time != -1 and pareto_time != -1:
             total_time = build_time + pareto_time
             
+            
+        exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
+        exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+        try:
+            exact_pf = np.load(exact_sol_path)
+        except Exception as e:
+            print(f"Error loading exact Pareto front for PID {pid}: {e}")
+            exact_pf = None
+            
+        cardinality_result = self.metric_calculator.compute_cardinality(
+            true_pf=exact_pf,
+            approx_pf=dd_manager.frontier
+        )
+        pprint(cardinality_result)
+        
         stats_data = {
             "pid": [pid],
+            "cardinality": [cardinality_result['cardinality']],
+            "precision": [cardinality_result['precision']],
+            "cardinality_raw": [cardinality_result['cardinality_raw']],
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [total_time],
         }
         df_stats = pd.DataFrame(stats_data)
-        
         try:
             df_stats.to_csv(sols_save_path / f"{pid}.csv", index=False)
         except Exception as e:
@@ -105,8 +123,8 @@ class Runner:
         sols_save_path = self._get_save_path("sols")
         
         self._save_dd_stats(pid, dd_manager, dds_save_path)
-        self._save_frontier_stats(pid, dd_manager, sols_save_path)
         self._save_frontier(pid, dd_manager, sols_save_path)
+        self._save_frontier_stats(pid, dd_manager, sols_save_path)
 
     def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
@@ -126,39 +144,6 @@ class Runner:
                 print(f"Pid: {pid}, PF size: {dd_manager.frontier.shape}")
                 
             self.save(pid, dd_manager)
-
-
-    def run(self):
-        if self.cfg.n_processes == 1:
-            self.worker(0)
-        else:
-            pool = mp.Pool(processes=self.cfg.n_processes)
-            results = []
-
-            for rank in range(self.cfg.n_processes):
-                results.append(pool.apply_async(self.worker, args=(rank,)))
-
-            for r in results:
-                r.get()
-
-        for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
-            print(f"Processing PID: {pid} on rank {rank}")
-
-            # Load instance data
-            data = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
-
-            # Instantiate DDManager based on config
-            dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
-            assert dd_manager is not None, "DD Manager instantiation failed."
-            
-            dd_manager.reset(data) # Pass instance data and order
-            dd_manager.build_dd()
-            dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
-            if dd_manager.frontier is not None:
-                print(f"Pid: {pid}, PF size: {dd_manager.frontier.shape}")
-                
-            self.save(pid, dd_manager)
-
 
     def run(self):
         if self.cfg.n_processes == 1:
