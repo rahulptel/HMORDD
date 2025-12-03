@@ -8,9 +8,9 @@ defaults:
 from_pid: 0
 to_pid: 1000
 n_processes: 1
-split: train
+split: test
 dd_type: ${dd.type}
-seed: 7
+seed: 42
 save_dd: false
 
 # Time limit to compute the Pareto frontier

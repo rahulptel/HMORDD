@@ -24,9 +24,39 @@ class MetricCalculator:
     def __init__(self, n_objs):
         self.n_objs = n_objs
 
-    def compute_cardinality(self, true_pf, pred_pf):
-        # Simplified for now, original was more complex
-        return {'cardinality_raw': 0, 'cardinality': 0, 'precision': 0}
+    @staticmethod
+    def compute_cardinality(true_pf=None, approx_pf=None):
+        if true_pf is None:
+            print("True PF not available!")
+            return {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1}
+        if approx_pf is None:
+            print("Predicted PF not available!")
+            return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
+            
+        true_pf, approx_pf = np.array(true_pf), np.array(approx_pf)
+        
+        if true_pf.size == 0:
+            print("True PF not available!")
+            return {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1}
+
+        if approx_pf.size == 0:
+            print("Predicted PF not available!")
+            return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
+
+        assert true_pf.ndim == approx_pf.ndim == 2
+        assert true_pf.shape[1] == approx_pf.shape[1]
+
+        # Defining a data type
+        n_objs = true_pf.shape[1]
+        dtype = {'names': [f'f{i}' for i in range(n_objs)],
+                 'formats': [true_pf.dtype] * n_objs}
+        
+        # Finding intersection
+        found_ndps = np.intersect1d(true_pf.view(dtype), approx_pf.view(dtype))
+
+        return {'cardinality': found_ndps.shape[0] / true_pf.shape[0], 
+                'cardinality_raw': found_ndps.shape[0],
+                'precision': found_ndps.shape[0] / approx_pf.shape[0]}
 
 
 class Baseline(ABC):
