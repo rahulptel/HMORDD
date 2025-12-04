@@ -1,14 +1,9 @@
 import json
 import multiprocessing as mp
-import signal
-import sys
-import time
 import zipfile
-from abc import ABC, abstractmethod
-from pathlib import Path
+from abc import ABC
 
 import numpy as np
-import torch
 
 
 class CONST:
@@ -33,12 +28,12 @@ class MetricCalculator:
             print("Predicted PF not available!")
             return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
             
-        true_pf, approx_pf = np.array(true_pf), np.array(approx_pf)
+        true_pf, approx_pf = np.array(true_pf).astype(np.int64), \
+            np.array(approx_pf).astype(np.int64)
         
         if true_pf.size == 0:
             print("True PF not available!")
             return {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1}
-
         if approx_pf.size == 0:
             print("Predicted PF not available!")
             return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
@@ -49,8 +44,7 @@ class MetricCalculator:
         # Defining a data type
         n_objs = true_pf.shape[1]
         dtype = {'names': [f'f{i}' for i in range(n_objs)],
-                 'formats': [true_pf.dtype] * n_objs}
-        
+                 'formats': [true_pf.dtype] * n_objs}                
         # Finding intersection
         found_ndps = np.intersect1d(true_pf.view(dtype), approx_pf.view(dtype))
 

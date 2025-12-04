@@ -1,10 +1,13 @@
 import time
+from pprint import pprint
 
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
+from hmordd.common.utils import MetricCalculator
 from hmordd.setpacking.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -26,8 +29,7 @@ class SetPackingProblem(Problem):
         self.A = np.zeros((self.n_cons, self.n_vars), dtype=np.float64)
         for idx, cons in enumerate(instance_data["cons_coeffs"]):
             cons_indices = np.asarray(cons, dtype=np.int64)
-            if cons_indices.size and cons_indices.min() >= 1:
-                cons_indices = cons_indices - 1
+            # Assume the indices are 0-based
             self.A[idx, cons_indices] = 1
 
         super().__init__(
@@ -47,6 +49,7 @@ class SetPackingProblem(Problem):
 class Runner(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
+        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
 
     def _get_save_path(self, save_type="sols"):
         if save_type == "sols":
@@ -68,7 +71,7 @@ class Runner(BaseRunner):
         # Default population size based on n_vars and n_objs
         pop_size = None
         if n_vars == 100:
-            if n_objs == 3:
+            if n_objs <= 3:
                 pop_size = 250
             elif n_objs == 4:
                 pop_size = 1000
@@ -79,7 +82,7 @@ class Runner(BaseRunner):
             else:
                 pop_size = 22000
         elif n_vars == 150:
-            if n_objs == 3:
+            if n_objs <= 3:
                 pop_size = 850
             elif n_objs == 4:
                 pop_size = 7000
@@ -93,7 +96,7 @@ class Runner(BaseRunner):
         # Default run time based on n_vars, n_objs, and cutoff
         run_time = None
         if n_vars == 100:
-            if n_objs == 3:
+            if n_objs <= 3:
                 run_time = 1
             elif n_objs == 4:
                 run_time = 1
@@ -104,7 +107,7 @@ class Runner(BaseRunner):
             else:
                 run_time = 23 if cutoff == "restrict" else 27
         elif n_vars == 150:
-            if n_objs == 3:
+            if n_objs <= 3:
                 run_time = 1 if cutoff == "restrict" else 14
             elif n_objs == 4:
                 run_time = 10 if cutoff == "restrict" else 53
@@ -131,7 +134,7 @@ class Runner(BaseRunner):
             sampling=BinaryRandomSampling(),
             crossover=TwoPointCrossover(prob=self.cfg.nsga2.crossover_prob),
             mutation=mutation,
-            eliminate_duplicates=True,
+            eliminate_duplicates=True,   
         )
 
         termination = get_termination("time", run_time)
@@ -148,8 +151,8 @@ class Runner(BaseRunner):
         if res.F is None or not len(res.F):
             return None
 
-        return -np.array(res.F, dtype=np.float64)
-
+        return -np.array(res.F, dtype=np.int64)
+    
     def _save_frontier(self, pid, run_seed, pareto_front, sols_save_path):
         try:
             if pareto_front is not None and pareto_front.size:
@@ -160,6 +163,7 @@ class Runner(BaseRunner):
     def _save_stats(
         self,
         pid,
+        cardinality_result,
         time_taken,
         pareto_front_size,
         sols_save_path,
@@ -172,6 +176,9 @@ class Runner(BaseRunner):
     ):
         stats_data = {
             "pid": [pid],
+            "cardinality": [cardinality_result['cardinality']],
+            "precision": [cardinality_result['precision']],
+            "cardinality_raw": [cardinality_result['cardinality_raw']],
             "pop_size": [pop_size_used],
             "crossover_prob": [self.cfg.nsga2.crossover_prob],
             "mutation_prob": [self.cfg.nsga2.mutation_prob],
@@ -221,32 +228,58 @@ class Runner(BaseRunner):
                 default_pop
                 if getattr(self.cfg.nsga2, "pop_size", None) is None
                 else self.cfg.nsga2.pop_size
-
             )
             run_time = (
                 default_time
                 if getattr(self.cfg.nsga2, "run_time", None) is None
                 else self.cfg.nsga2.run_time
-
             )
-
-            for run_seed in getattr(self.cfg, "run_seeds", [self.cfg.inst_seed]):
+            
+            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
+            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+            exact_pf = None
+            if exact_sol_path.exists():
+                try:
+                    exact_pf = np.load(exact_sol_path).astype(np.int64)
+                except Exception as e:
+                    print(f"Error loading exact Pareto front for PID {pid}: {e}")
+            else:
+                print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")                
+            
+            sols_save_path = sols_save_path / f"pop{pop_size}_time{run_time}"
+            sols_save_path.mkdir(parents=True, exist_ok=True)
+            for run_seed in getattr(self.cfg, "trial_seeds", [1, 2, 3, 4, 5]):
                 start_time = time.time()
-                pareto_front = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
+                approx_pf = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
                 time_taken = time.time() - start_time
-
-                if pareto_front is not None:
-                    print(f"Pid: {pid}, Seed: {run_seed}, PF size: {pareto_front.shape}")
-                    pareto_size = pareto_front.shape[0]
+                
+                if approx_pf is not None:                    
+                    # fig = plt.figure()
+                    # ax = fig.add_subplot(111, projection='3d')
+                    # ax.scatter(exact_pf[:, 0], exact_pf[:, 1], exact_pf[:, 2], label='True PF', alpha=0.6)
+                    # ax.scatter(approx_pf[:, 0], approx_pf[:, 1], approx_pf[:, 2], label='Approx PF', alpha=0.6)
+                    # plt.title('Pareto Front Comparison')
+                    # plt.legend()
+                    # plt.show()                  
+                    print(f"Pid: {pid}, Seed: {run_seed}, PF size: {approx_pf.shape}")
+                    n_approx_pf = approx_pf.shape[0]
+                    cardinality_result = self.metric_calculator.compute_cardinality(
+                        true_pf=exact_pf,
+                        approx_pf=approx_pf,
+                    )
+                    pprint(cardinality_result)
+                    
                 else:
                     print(f"Did not find feasible solution: {pid} (seed={run_seed})")
-                    pareto_size = 0
-
-                self._save_frontier(pid, run_seed, pareto_front, sols_save_path)
+                    n_approx_pf = 0
+                    
+                
+                self._save_frontier(pid, run_seed, approx_pf, sols_save_path)
                 self._save_stats(
                     pid,
+                    cardinality_result,
                     time_taken,
-                    pareto_size,
+                    n_approx_pf,
                     sols_save_path,
                     instance_data,
                     pop_size,

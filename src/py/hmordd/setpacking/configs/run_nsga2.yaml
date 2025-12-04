@@ -8,7 +8,7 @@ defaults:
 from_pid: 0
 to_pid: 100
 n_processes: 1
-split: train
+split: test
 
 memory_limit_gb: 16
 
@@ -16,7 +16,7 @@ memory_limit_gb: 16
 inst_seed: 42
 
 # Seeds controlling algorithm stochasticity across runs
-run_seeds: [7, 8, 9, 10, 11]
+trial_seeds: [7, 8, 9, 10, 11]
 
 hydra:
   output_subdir: null
