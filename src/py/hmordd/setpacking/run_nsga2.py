@@ -253,6 +253,7 @@ class Runner(BaseRunner):
                 approx_pf = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
                 time_taken = time.time() - start_time
                 
+                cardinality_result = {'cardinality': -10, 'cardinality_raw': -10, 'precision': -10}
                 if approx_pf is not None:                    
                     # fig = plt.figure()
                     # ax = fig.add_subplot(111, projection='3d')
