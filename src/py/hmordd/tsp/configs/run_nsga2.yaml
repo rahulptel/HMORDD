@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - prob: tsp
+  - nsga2: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+from_pid: 0
+to_pid: 100
+n_processes: 1
+split: test
+
+memory_limit_gb: 16
+
+# Seed controlling which instance files to load
+inst_seed: 7
+
+# Seeds controlling algorithm stochasticity across runs
+trial_seeds: [7, 8, 9, 10, 11]
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: ''
