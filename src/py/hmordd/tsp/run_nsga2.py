@@ -74,40 +74,20 @@ class Runner(BaseRunner):
         return save_path
 
     def _compute_defaults(self, n_vars: int, n_objs: int, cutoff: str):
-        pop_size = None
-        if n_vars == 15:
-            if n_objs <= 3:
-                pop_size = 900
-            elif n_objs == 4:
-                pop_size = 9500
-            else:
-                raise ValueError("Invalid n_objs. Must be <= 4.")
-        else:
-            raise ValueError("Invalid n_vars. Must be 15.")
-
-        run_time = None
-        if cutoff == "restrict":            
-            if n_vars == 15:
-                if n_objs <= 3:
-                    run_time = 3
-                elif n_objs == 4:
-                    run_time = 25
-                else:
-                    raise ValueError("Invalid n_objs. Must be <= 4.")
-            else:
-                raise ValueError("Invalid n_vars. Must be 15.")
-
-        elif cutoff == "5xrestrict":
-            if n_vars == 15:
-                if n_objs <= 3:
-                    run_time = 15
-                elif n_objs == 4:
-                    run_time = 125
-                else:
-                    raise ValueError("Invalid n_objs. Must be <= 4.")
-            else:
-                raise ValueError("Invalid n_vars. Must be 15.")
+        if cutoff not in ["restrict", "5xrestrict"]:
+            raise ValueError("Invalid cutoff. Must be 'restrict' or '5xrestrict'.")
         
+        pop_size, run_time = None, None
+        if n_vars == 15 and n_objs <= 3:
+            pop_size, run_time = 900, 3
+        elif n_vars == 15 and n_objs == 4:
+            pop_size, run_time = 9300, 25
+        else:
+            raise ValueError("Invalid n_vars or n_objs.")
+        
+        if "5x" in cutoff:
+            run_time = min(run_time * 5, 600)
+
         return pop_size, run_time
 
     def _run_nsga2(self, instance_data, pid, pop_size: int, run_time: int, run_seed: int):
