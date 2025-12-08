@@ -5,15 +5,18 @@ from pathlib import Path
 import hydra
 import numpy as np
 import pandas as pd
-
 from hmordd import Paths
+from hmordd.common.base_runner import BaseRunner
+from hmordd.common.utils import MetricCalculator
 from hmordd.tsp.dd import DDManagerFactory
 from hmordd.tsp.utils import get_instance_data
 
 
-class Runner:
+class Runner(BaseRunner):
     def __init__(self, cfg):
-        self.cfg = cfg
+        super().__init__(cfg)
+        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
+        self._set_memory_limit()
 
     def _get_save_path(self, save_type: str) -> Path:
         if save_type == "sols":
@@ -99,26 +102,12 @@ class Runner:
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
             inst = get_instance_data(size, self.cfg.split, self.cfg.seed, pid)
-            inst.setdefault("n_objs", self.cfg.prob.n_objs)
-            inst.setdefault("n_vars", self.cfg.prob.n_vars)
-
+            
             dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
             dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
             self.save(pid, dd_manager)
-
-    def run(self) -> None:
-        if self.cfg.n_processes == 1:
-            self.worker(0)
-            return
-        pool = mp.Pool(processes=self.cfg.n_processes)
-        results = [pool.apply_async(self.worker, args=(rank,)) for rank in range(self.cfg.n_processes)]
-        for result in results:
-            result.get()
-        pool.close()
-        pool.join()
-
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):

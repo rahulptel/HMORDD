@@ -1,0 +1,6 @@
+# Parameters for restricted DD
+type: restricted
+width: 4804 # Max width for restricted DD
+# Options:
+# OrdMeanHigh, OrdMaxHigh, OrdMinHigh, OrdMeanLow, OrdMaxLow, OrdMinLow, E2E
+nosh: OrdMeanHigh
