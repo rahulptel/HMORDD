@@ -1,0 +1,14 @@
+# NSGA-II algorithm hyperparameters
+# Set pop_size to null to enable dynamic defaults based on (n_vars, n_objs, cutoff)
+pop_size: 
+run_time: 
+# https://github.com/anyoptimization/pymoo/blob/main/pymoo/core/crossover.py#L9
+# Set to default
+crossover_prob: 0.9
+# Individual-level mutation probability (default: 1.0 when null)
+mutation_prob: 
+# Variable-level mutation probability (default: min(0.5, 1/n_var) when null)
+mutation_prob_var: 
+# Set the time limit based on the restricted/exact DD run time
+# Options: restrict | 5xrestrict
+cutoff: restrict
