@@ -136,10 +136,10 @@ class Runner(BaseRunner):
     def worker(self, rank: int) -> None:
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
-            data = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
+            inst = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
 
             dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
-            dd_manager.reset(data)
+            dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
             self.save(pid, dd_manager)
