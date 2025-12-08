@@ -68,56 +68,36 @@ class Runner(BaseRunner):
         return save_path
 
     def _compute_defaults(self, n_vars: int, n_objs: int, cutoff: str):
-        # Default population size based on n_vars and n_objs
-        pop_size = None
-        if n_vars == 100:
-            if n_objs <= 3:
-                pop_size = 250
-            elif n_objs == 4:
-                pop_size = 1000
-            elif n_objs == 5:
-                pop_size = 4000
-            elif n_objs == 6:
-                pop_size = 9000
-            else:
-                pop_size = 22000
-        elif n_vars == 150:
-            if n_objs <= 3:
-                pop_size = 850
-            elif n_objs == 4:
-                pop_size = 7000
-            elif n_objs == 5:
-                pop_size = 30000
-            elif n_objs == 6:
-                pop_size = 80000
-            else:
-                pop_size = 90000
+        if cutoff not in ["restrict", "5xrestrict"]:
+            raise ValueError(f"Unsupported cutoff: {cutoff}")
+        
+        pop_size, run_time = None, None        
+        if n_vars == 100 and n_objs <= 3:
+            pop_size, run_time = 250, 1
+        elif n_vars == 100 and n_objs == 4:
+            pop_size, run_time = 1000, 1
+        elif n_vars == 100 and n_objs == 5:
+            pop_size, run_time = 4000, 1
+        elif n_vars == 100 and n_objs == 6:
+            pop_size, run_time = 9000, 5
+        elif n_vars == 100 and n_objs >= 7:
+            pop_size, run_time = 22000, 23
+        elif n_vars == 150 and n_objs <= 3:
+            pop_size, run_time = 875, 1
+        elif n_vars == 150 and n_objs == 4:
+            pop_size, run_time = 7200, 10
+        elif n_vars == 150 and n_objs == 5:
+            pop_size, run_time = 32000, 83
+        elif n_vars == 150 and n_objs == 6:
+            pop_size, run_time = 81000, 334            
+        elif n_vars == 150 and n_objs >= 7:
+            pop_size, run_time = 92000, 381
+        else:
+            raise ValueError(f"Unsupported n_vars: {n_vars}, n_objs: {n_objs}")
 
-        # Default run time based on n_vars, n_objs, and cutoff
-        run_time = None
-        if n_vars == 100:
-            if n_objs <= 3:
-                run_time = 1
-            elif n_objs == 4:
-                run_time = 1
-            elif n_objs == 5:
-                run_time = 1 if cutoff == "restrict" else 2
-            elif n_objs == 6:
-                run_time = 5 if cutoff == "restrict" else 10
-            else:
-                run_time = 23 if cutoff == "restrict" else 27
-        elif n_vars == 150:
-            if n_objs <= 3:
-                run_time = 1 if cutoff == "restrict" else 14
-            elif n_objs == 4:
-                run_time = 10 if cutoff == "restrict" else 53
-            elif n_objs == 5:
-                run_time = 83 if cutoff == "restrict" else 326
-            elif n_objs == 6:
-                run_time = 333 if cutoff == "restrict" else 904
-            else:
-                run_time = 380 if cutoff == "restrict" else 851
-
+        if "5x" in cutoff:
+            run_time = min(5 * run_time, 600)
+            
         return pop_size, run_time
 
     def _run_nsga2(self, instance_data, pid, pop_size: int, run_time: int, run_seed: int):

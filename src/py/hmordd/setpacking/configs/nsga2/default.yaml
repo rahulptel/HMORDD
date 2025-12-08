@@ -10,5 +10,5 @@ mutation_prob:
 # Variable-level mutation probability (default: min(0.5, 1/n_var) when null)
 mutation_prob_var: 
 # Set the time limit based on the restricted/exact DD run time
-# Options: restrict | exact
+# Options: restrict | 5xrestrict
 cutoff: restrict
