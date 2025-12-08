@@ -5,8 +5,8 @@ defaults:
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
 
-from_pid: 0
-to_pid: 100
+from_pid: 1100
+to_pid: 1200
 n_processes: 1
 split: test
 

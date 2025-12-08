@@ -25,22 +25,29 @@ class TSPProblem(Problem):
         self.n_objs = instance_data["n_objs"]
 
         super().__init__(
-            n_var=self.n_cities,
+            # Tour starts from city 0. Only permute cities 1 to n_cities-1.
+            # This is because the first city is fixed.
+            n_var=self.n_cities - 1,
             n_obj=self.n_objs,
             n_constr=0,
             xl=0,
-            xu=self.n_cities - 1,
+            # Variable indices will be 0 to n_cities-2
+            xu=self.n_cities - 2,
             vtype=int,
         )
 
     def _evaluate(self, X, out, *args, **kwargs):
+        # Permutation is 0-n_cities-2. Convert to 1-n_cities-1
+        X = X + 1        
         F = np.zeros((X.shape[0], self.n_obj))
-        for k in range(self.n_obj):
-            for i, solution in enumerate(X):
-                distance = 0
+        for i, solution in enumerate(X):
+            for k in range(self.n_obj):
+                # Start tour at city 0
+                distance = self.dists[k][0, solution[0]]
                 for j in range(len(solution) - 1):
                     distance += self.dists[k][solution[j], solution[j + 1]]
-                distance += self.dists[k][solution[-1], solution[0]]
+                # End tour at city 0
+                distance += self.dists[k][solution[-1], 0]
                 F[i, k] = distance
         out["F"] = F
 
@@ -208,11 +215,11 @@ class Runner(BaseRunner):
             )
             
             exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npz"
             exact_pf = None
             if exact_sol_path.exists():
                 try:
-                    exact_pf = np.load(exact_sol_path) # TSP is float usually?
+                    exact_pf = -np.load(exact_sol_path)['z']                     
                 except Exception as e:
                     print(f"Error loading exact Pareto front for PID {pid}: {e}")
             else:
