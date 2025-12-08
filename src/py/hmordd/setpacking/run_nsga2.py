@@ -254,6 +254,7 @@ class Runner(BaseRunner):
                 time_taken = time.time() - start_time
                 
                 cardinality_result = {'cardinality': -10, 'cardinality_raw': -10, 'precision': -10}
+                n_approx_pf = 0
                 if approx_pf is not None:                    
                     # fig = plt.figure()
                     # ax = fig.add_subplot(111, projection='3d')
@@ -272,7 +273,6 @@ class Runner(BaseRunner):
                     
                 else:
                     print(f"Did not find feasible solution: {pid} (seed={run_seed})")
-                    n_approx_pf = 0
                     
                 
                 self._save_frontier(pid, run_seed, approx_pf, sols_save_path)
