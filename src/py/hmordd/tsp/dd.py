@@ -176,7 +176,7 @@ class TSPRestrictedDDManager(TSPDDManager):
             if is_done:
                 break
                     
-        self.time_build = self.time_build - time.time()
+        self.time_build = time.time() - self.time_build
 
 class DDManagerFactory:
     _managers = {
