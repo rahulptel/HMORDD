@@ -59,7 +59,7 @@ def generate_table_lines() -> list[str]:
         print(total_instances, cases)
         for case_idx in range(cases):
             pid_start = offset + case_idx * INSTANCES_PER_CASE
-            pid_end = min(pid_start + INSTANCES_PER_CASE, total_instances)
+            pid_end = min(pid_start + INSTANCES_PER_CASE, offset + total_instances)
             command = build_command(n_objs, n_vars, pid_start, pid_end)
             lines.append(f"{case_id} {command}")
             case_id += 1
