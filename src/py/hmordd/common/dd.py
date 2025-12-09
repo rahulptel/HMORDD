@@ -50,3 +50,13 @@ class DDManager:
 
     def get_decision_diagram(self):
         return None
+
+class NOSH:
+    def __init__(self, *args, **kwargs):
+        self.inst = None
+                
+    def reset_inst(self, inst):
+        self.inst = inst
+        
+    def score_nodes(self, layer):
+        raise NotImplementedError("Score nodes method must be implemented in subclasses.")
