@@ -9,7 +9,8 @@ VENV_NAME="hmordd"
 echo "Load module..."
 module purge
 module load cuda
-module load python/3.12
+module load python/3.11
+module load boost
 
 # create virtual env
 if [ ! -d "./$VENVS_DIR/$VENV_NAME" ]; then
@@ -22,6 +23,7 @@ if [ ! -d "./$VENVS_DIR/$VENV_NAME" ]; then
   # pip install
   echo "Install python packages..."
   pip install --no-index --upgrade pip
+  pip install --no-index pymoo
   pip install --no-index numpy
   pip install --no-index matplotlib
   pip install --no-index scipy
