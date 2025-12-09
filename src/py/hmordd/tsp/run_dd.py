@@ -26,7 +26,8 @@ class Runner(BaseRunner):
         else:
             raise ValueError(f"Unknown save_type '{save_type}'")
 
-        save_path = base_path / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / self.cfg.dd_type
+        save_path = base_path / self.cfg.prob.name / self.cfg.prob.size 
+        save_path = save_path / self.cfg.split / self.cfg.dd.type / self.cfg.dd.nosh
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 

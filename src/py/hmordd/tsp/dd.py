@@ -2,22 +2,12 @@ import signal
 import time
 
 import numpy as np
-from hmordd.common.dd import DDManager
+from hmordd.common.dd import NOSH, DDManager
 from hmordd.common.utils import handle_timeout
 from hmordd.tsp.utils import get_env
 from scipy.stats import rankdata
 
 RESTRICT = 1
-
-class NOSH:
-    def __init__(self, *args, **kwargs):
-        self.inst = None
-                
-    def reset_inst(self, inst):
-        self.inst = inst
-        
-    def score_nodes(self, layer):
-        raise NotImplementedError("Score nodes method must be implemented in subclasses.")
 
 class NOSHRule(NOSH):
     def __init__(self, rule):
@@ -154,7 +144,7 @@ class TSPRestrictedDDManager(TSPDDManager):
         elif self.cfg.dd.nosh == "E2E":
             self.scorer = NOSHE2E()
         else:
-            raise ValueError(f"Unknown nosh rule '{self.cfg.dd.nosh}' for tsp restricted DD")
+            raise ValueError(f"Unknown nosh '{self.cfg.dd.nosh}' for tsp restricted DD")
         
     def reset(self, inst):
         super().reset(inst)
