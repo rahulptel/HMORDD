@@ -54,8 +54,7 @@ class KnapsackDDManager(DDManager):
             inst["cons_coeffs"],
             inst["rhs"],
         )
-        if getattr(self.cfg.prob, "preprocess", False):
-            self.env.preprocess_inst()
+        self.env.preprocess_inst()
         self.env.initialize_dd_constructor()
 
     def build_dd(self):
