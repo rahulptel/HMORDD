@@ -67,7 +67,7 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _compute_defaults(self, n_vars: int, n_objs: int, cutoff: str):
+    def _compute_defaults(self, n_vars, n_objs, cutoff):
         if cutoff not in ["restrict", "5xrestrict"]:
             raise ValueError(f"Unsupported cutoff: {cutoff}")
         
@@ -100,7 +100,7 @@ class Runner(BaseRunner):
             
         return pop_size, run_time
 
-    def _run_nsga2(self, instance_data, pid, pop_size: int, run_time: int, run_seed: int):
+    def _run_nsga2(self, instance_data, pid, pop_size, run_time, run_seed):
         problem = SetPackingProblem(instance_data)
         mutation_kwargs = {}
         if getattr(self.cfg.nsga2, "mutation_prob", None) is not None:

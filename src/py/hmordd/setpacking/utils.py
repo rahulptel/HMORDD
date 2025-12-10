@@ -9,7 +9,7 @@ PROB_PREFIX = "sp"
 import sys
 
 
-def get_env(n_objs: int):
+def get_env(n_objs):
     try:
         lib = __import__("libsetpackingenvo" + str(n_objs))
         return lib.SetpackingEnv()
