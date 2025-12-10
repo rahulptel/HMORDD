@@ -68,7 +68,7 @@ def generate_table_lines() -> list[str]:
 
 def main() -> None:
     lines = generate_table_lines()
-    TABLE_PATH.write_text("\n".join(lines), encoding="utf-8")
+    TABLE_PATH.write_text("\n".join(lines) + "\n")
     print(f"Wrote {len(lines)} cases to {TABLE_PATH}")
 
 
