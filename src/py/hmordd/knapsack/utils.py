@@ -88,3 +88,20 @@ def get_static_order(order_type, data):
         return np.array([i[0] for i in idx_profit_by_weight])
     elif order_type == 'Lex':
         return np.arange(data['n_vars'])
+    
+
+def get_dataset_prefix(with_parent=False, layer_weight=None, neg_to_pos_ratio=1.0):
+    prefix = []
+    if with_parent:
+        prefix.append("wp")
+    if layer_weight is not None:
+        prefix.append(f"{layer_weight}")
+    if neg_to_pos_ratio != 1.0:
+        prefix.append(f"{neg_to_pos_ratio}")
+
+    if len(prefix):
+        prefix = "-".join(prefix)
+    else:
+        prefix = "default"
+
+    return prefix

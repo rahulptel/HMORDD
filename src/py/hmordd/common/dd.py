@@ -58,5 +58,5 @@ class NOSH:
     def reset_inst(self, inst):
         self.inst = inst
         
-    def score_nodes(self, layer):
+    def score_nodes(self, layer, *args, **kwargs):
         raise NotImplementedError("Score nodes method must be implemented in subclasses.")

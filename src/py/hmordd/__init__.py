@@ -22,6 +22,8 @@ class Paths:
     
     dds = outputs / "dds"
     sols = outputs / "sols"
+    checkpoints = outputs / "checkpoints"
+    pretrained = resources / "pretrained"
     
     
 # Add the bin directory to the python path to find the C++ binaries
