@@ -3,7 +3,8 @@ n_objs: 3
 n_vars: 50
 size: ${prob.n_objs}_${prob.n_vars}
 
-preprocess: false
+order_type: MinWt
+preprocess: true
 pf_enum_method: 1
 maximization: true
 dominance: 0

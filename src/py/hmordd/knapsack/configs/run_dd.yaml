@@ -11,7 +11,7 @@ n_processes: 1
 split: train
 dd_type: ${dd.type}
 seed: 7
-save_dd: true
+save_dd: false
 
 time_limit: 1800
 

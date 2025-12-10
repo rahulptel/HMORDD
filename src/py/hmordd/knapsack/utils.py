@@ -1,16 +1,15 @@
 """Utility functions for knapsack instances."""
-
-from __future__ import annotations
-
 import importlib
-from pathlib import Path
 import zipfile
+from operator import itemgetter
+from pathlib import Path
 
+import numpy as np
 from hmordd import Paths
 from hmordd.knapsack import PROB_NAME, PROB_PREFIX
 
 
-def get_env(n_objs: int):
+def get_env(n_objs):
     module_name = f"libknapsackenvo{n_objs}"
     try:
         module = importlib.import_module(module_name)
@@ -24,12 +23,12 @@ def get_env(n_objs: int):
     return module.KnapsackEnv()
 
 
-def get_instance_path(size: str, split: str, seed: int, pid: int) -> Path:
+def get_instance_path(size, split, seed, pid) -> Path:
     filename = f"{PROB_PREFIX}_{seed}_{size}_{pid}.dat"
     return Paths.instances / PROB_NAME / size / split / filename
 
 
-def get_instance_data(size: str, split: str, seed: int, pid: int) -> dict:
+def get_instance_data(size, split, seed, pid) -> dict:
     file_path = get_instance_path(size, split, seed, pid)
     if file_path.exists():
         return _read_dat(file_path.read_text())
@@ -48,10 +47,10 @@ def get_instance_data(size: str, split: str, seed: int, pid: int) -> dict:
 def _read_dat(content: str) -> dict:
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     n_vars = int(lines[0])
-    n_cons = int(lines[1])
-    n_objs = int(lines[2])
+    n_cons = 1
+    n_objs = int(lines[1])
 
-    offset = 3
+    offset = 2
     values = []
     for _ in range(n_objs):
         values.append([int(v) for v in lines[offset].split()])
@@ -74,4 +73,18 @@ def _read_dat(content: str) -> dict:
     }
 
 
-__all__ = ["get_env", "get_instance_data", "get_instance_path"]
+def get_static_order(order_type, data):
+    if order_type == 'MinWt':
+        idx_weight = [(i, w) for i, w in enumerate(data['weight'])]
+        idx_weight.sort(key=itemgetter(1))
+
+        return np.array([i[0] for i in idx_weight])
+    elif order_type == 'MaxRatio':
+        min_profit = np.min(data['value'], 0)
+        profit_by_weight = [v / w for v, w in zip(min_profit, data['weight'])]
+        idx_profit_by_weight = [(i, f) for i, f in enumerate(profit_by_weight)]
+        idx_profit_by_weight.sort(key=itemgetter(1), reverse=True)
+
+        return np.array([i[0] for i in idx_profit_by_weight])
+    elif order_type == 'Lex':
+        return np.arange(data['n_vars'])
