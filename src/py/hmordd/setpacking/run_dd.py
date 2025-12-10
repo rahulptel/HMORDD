@@ -129,16 +129,17 @@ class Runner(BaseRunner):
     def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
-            # Only process if exact Pareto front is available
-            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
-            exact_pf = None
-            try:
-                exact_pf = np.load(exact_sol_path)
-            except Exception as e:
-                print(f"Error loading exact Pareto front for PID {pid}: {e}")
-            if exact_pf is None:
-                continue
+            if self.cfg.dd.type == "restricted":
+                # Only process if exact Pareto front is available
+                exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
+                exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+                exact_pf = None
+                try:
+                    exact_pf = np.load(exact_sol_path)
+                except Exception as e:
+                    print(f"Error loading exact Pareto front for PID {pid}: {e}")
+                if exact_pf is None:
+                    continue
                 
             inst = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
 
