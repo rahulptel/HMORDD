@@ -58,23 +58,21 @@ class Runner(BaseRunner):
         pid: int,
         dd_manager,
         cardinality_result: dict,
-        frontier_size: int,
         instance_data: dict,
-        exact_pf_size: int,
     ) -> dict:
         return {
             "pid": [pid],
+            "n_exact_pf": [cardinality_result.get("n_exact_pf")],
+            "n_approx_pf": [cardinality_result.get("n_approx_pf")],
             "cardinality": [cardinality_result.get("cardinality")],
             "precision": [cardinality_result.get("precision")],
             "cardinality_raw": [cardinality_result.get("cardinality_raw")],
             "n_objectives": [instance_data.get("n_objs") if instance_data else None],
             "n_variables": [instance_data.get("n_vars") if instance_data else None],
-            "inst_seed": [self.cfg.seed],
-            "exact_pf_size": [exact_pf_size],
+            "inst_seed": [self.cfg.seed],            
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
-            "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
-            "pareto_points": [frontier_size],
+            "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)]            
         }
 
     def _sum_times(self, build_time, frontier_time):
@@ -96,18 +94,14 @@ class Runner(BaseRunner):
         dds_path: Path,
         sols_path: Path,
         cardinality_result: dict,
-        frontier_size: int,
         instance_data: dict,
-        exact_pf_size: int,
     ) -> None:
         stats = pd.DataFrame(
             self._stats_dict(
                 pid,
                 dd_manager,
                 cardinality_result,
-                frontier_size,
                 instance_data,
-                exact_pf_size,
             )
         )
         try:
@@ -152,9 +146,7 @@ class Runner(BaseRunner):
         pid: int,
         dd_manager,
         cardinality_result: dict,
-        frontier_size: int,
         instance_data: dict,
-        exact_pf_size: int,
     ) -> None:
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
@@ -164,20 +156,17 @@ class Runner(BaseRunner):
             dds_path,
             sols_path,
             cardinality_result,
-            frontier_size,
             instance_data,
-            exact_pf_size,
         )
         self._save_frontier(pid, dd_manager, sols_path)
         self._maybe_save_dd(pid, dd_manager, dds_path)
 
     def worker(self, rank: int) -> None:
         size = self.cfg.prob.size
+        dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
             inst = get_instance_data(size, self.cfg.split, self.cfg.seed, pid)
-
-            dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
             dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
@@ -194,9 +183,7 @@ class Runner(BaseRunner):
                 pid,
                 dd_manager,
                 cardinality_result,
-                frontier_size,
                 inst,
-                exact_pf_size,
             )
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")

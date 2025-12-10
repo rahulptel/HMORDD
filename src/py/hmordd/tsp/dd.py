@@ -2,9 +2,13 @@ import signal
 import time
 
 import numpy as np
+import torch
+from hmordd import Paths
 from hmordd.common.dd import NOSH, DDManager
 from hmordd.common.utils import handle_timeout
-from hmordd.tsp.utils import get_env
+from hmordd.tsp import PROB_PREFIX
+from hmordd.tsp.model import ParetoNodePredictor
+from hmordd.tsp.utils import compute_stat_features, get_env
 from scipy.stats import rankdata
 
 RESTRICT = 1
@@ -29,7 +33,7 @@ class NOSHRule(NOSH):
         else:
             raise ValueError(f"Unknown nosh rule '{self.rule}' for tsp restricted DD")
             
-    def score_nodes(self, layer):
+    def score_nodes(self, layer, lid=None):
         # Rank edges based on distances
         edge_rank = []
         for obj in self.inst["dists"]:
@@ -69,15 +73,89 @@ class NOSHRule(NOSH):
         return scores
 
 class NOSHE2E(NOSH):
-    def __init__(self):
-        super().__init__()
-        self.model = None
+    GRID_DIM = 1000
+    MAX_DIST_ON_GRID = ((GRID_DIM ** 2) + (GRID_DIM ** 2)) ** 0.5
 
-    def get_variable_embeddings(self):
-        pass
-    
-    def score_nodes(self, layer):
-        pass
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+        self.device = torch.device("cpu")
+        self.model = self._load_model()
+        self.node_emb = None
+        self.n_vars = None
+
+    def _checkpoint_path(self):
+        return (
+            Paths.resources
+            / "checkpoints"
+            / PROB_PREFIX
+            / self.cfg.prob.size
+            / f"{self.cfg.model.type}_best_model.pt"
+        )
+
+    def _load_model(self) -> ParetoNodePredictor:
+        model = ParetoNodePredictor(self.cfg.model).to(self.device)
+        ckpt_path = self._checkpoint_path()
+        if not ckpt_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found at {ckpt_path}")
+        checkpoint = torch.load(ckpt_path, map_location=self.device)
+        state_dict = (
+            checkpoint["model_state_dict"] if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint else checkpoint
+        )
+        model.load_state_dict(state_dict)
+        model.eval()
+        return model
+
+    def reset_inst(self, inst):
+        super().reset_inst(inst)
+        self.node_emb = None
+        self.n_vars = int(inst.get("n_vars"))
+        self._prepare_embeddings(inst)
+
+    @torch.no_grad()
+    def _prepare_embeddings(self, inst):
+        coords = (torch.from_numpy(inst["coords"]) / self.GRID_DIM).float().to(self.device)
+        dists = (torch.from_numpy(inst["dists"]) / self.MAX_DIST_ON_GRID).float().to(self.device)
+        node_feat = torch.cat((coords, compute_stat_features(dists)), dim=-1)
+        node_emb, edge_emb = self.model.token_encoder(
+            node_feat.unsqueeze(0),
+            dists.unsqueeze(0),
+        )
+        node_emb = self.model.graph_encoder(node_emb, edge_emb)
+        self.node_emb = node_emb.squeeze(0)  # n_vars x d_emb
+
+    @torch.no_grad()
+    def score_nodes(self, layer, lid=None):
+        if self.node_emb is None:
+            raise RuntimeError("Variable embeddings not initialized; call reset_inst first.")
+        if lid is None:
+            raise ValueError("Layer id is required for the E2E scorer.")
+
+        layer = torch.from_numpy(np.array(layer)).float().to(self.device)
+        B = layer.shape[0]
+        node_emb = self.node_emb.unsqueeze(0).expand(B, -1, -1)
+
+        last_visit = layer[:, -1].long()
+        visit_mask = layer[:, :-1]
+        visit_mask[torch.arange(B), last_visit] = 2
+        visit_enc = self.model.visit_encoder(visit_mask.long())
+
+        node_visit = self.model.node_visit_encoder2(
+            self.model.node_visit_encoder1((node_emb + visit_enc)).sum(1)
+        )
+        customer_enc = node_emb[torch.arange(B), last_visit]
+        n_vars = float(self.n_vars if self.n_vars is not None else self.node_emb.shape[0])
+        l_tensor = torch.full((B,), float(lid), device=self.device)
+        l_enc = self.model.layer_encoder(((n_vars - l_tensor) / n_vars).unsqueeze(-1))
+
+        if getattr(self.model, "concat_emb", False):
+            preds = self.model.pareto_predictor(
+                torch.cat((node_visit, customer_enc, l_enc), dim=-1)
+            )
+        else:
+            preds = self.model.pareto_predictor(node_visit + customer_enc + l_enc)
+        preds = torch.softmax(preds, dim=-1)
+        return preds[:, -1].cpu().numpy()
 
 class TSPDDManager(DDManager):
     def __init__(self, cfg):
@@ -142,7 +220,7 @@ class TSPRestrictedDDManager(TSPDDManager):
                                 "OrdMeanLow", "OrdMaxLow", "OrdMinLow"]:            
             self.scorer = NOSHRule(self.cfg.dd.nosh)                
         elif self.cfg.dd.nosh == "E2E":
-            self.scorer = NOSHE2E()
+            self.scorer = NOSHE2E(cfg)
         else:
             raise ValueError(f"Unknown nosh '{self.cfg.dd.nosh}' for tsp restricted DD")
         
@@ -164,9 +242,12 @@ class TSPRestrictedDDManager(TSPDDManager):
             if len(layer) > self.cfg.dd.width:
                 print("\tRestricting")
                 # Sort nodes in ascending order of scores and remove the last ones
-                scores = self.scorer.score_nodes(layer)
+                scores = self.scorer.score_nodes(layer, lid - 1)
                 idx_scores = [(i, s) for i, s in enumerate(scores)]
-                idx_scores.sort(key=lambda x: x[1])
+                if isinstance(self.scorer, NOSHE2E):
+                    idx_scores.sort(key=lambda x: x[1], reverse=True)
+                else:
+                    idx_scores.sort(key=lambda x: x[1])
                 nodes_to_remove = [i for i, _ in idx_scores[self.cfg.dd.width:]]
                 # nodes_to_remove.sort()
                 # print(nodes_to_remove)

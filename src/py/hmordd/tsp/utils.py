@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
+import torch
 from hmordd import Paths
 from hmordd.tsp import PROB_NAME, PROB_PREFIX
 
@@ -52,4 +53,20 @@ def _load_npz(source) -> dict:
     }
 
 
-__all__ = ["get_env", "get_instance_data", "get_instance_path"]
+def compute_stat_features(dists: torch.Tensor) -> torch.Tensor:
+    """Compute per-node distance statistics."""
+
+    return torch.cat(
+        (
+            dists.max(dim=-1, keepdim=True)[0],
+            dists.min(dim=-1, keepdim=True)[0],
+            dists.std(dim=-1, keepdim=True),
+            dists.median(dim=-1, keepdim=True)[0],
+            dists.quantile(0.75, dim=-1, keepdim=True)
+            - dists.quantile(0.25, dim=-1, keepdim=True),
+        ),
+        dim=-1,
+    )
+
+
+__all__ = ["get_env", "get_instance_data", "get_instance_path", "compute_stat_features"]
