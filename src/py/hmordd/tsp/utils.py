@@ -1,10 +1,8 @@
-"""Utility helpers for TSP instances."""
 
-from __future__ import annotations
+"""Utility helpers for TSP instances."""
 
 import io
 import zipfile
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -12,7 +10,7 @@ from hmordd import Paths
 from hmordd.tsp import PROB_NAME, PROB_PREFIX
 
 
-def get_env(n_objs: int):
+def get_env(n_objs):
     try:
         lib = __import__("libtspenvo" + str(n_objs))
         return lib.TSPEnv()
@@ -20,12 +18,12 @@ def get_env(n_objs: int):
         raise ImportError(f"Could not import library for {n_objs} objectives.")
 
 
-def get_instance_path(size: str, split: str, seed: int, pid: int) -> Path:
+def get_instance_path(size, split, seed, pid):
     filename = f"{PROB_PREFIX}_{seed}_{size}_{pid}.npz"
     return Paths.instances / PROB_NAME / size / split / filename
 
 
-def get_instance_data(size: str, split: str, seed: int, pid: int) -> dict:
+def get_instance_data(size, split, seed, pid):
     file_path = get_instance_path(size, split, seed, pid)
     if file_path.exists():
         return _load_npz(file_path)
@@ -41,7 +39,7 @@ def get_instance_data(size: str, split: str, seed: int, pid: int) -> dict:
     raise FileNotFoundError(f"Instance {pid} for size {size} and split {split} not found.")
 
 
-def _load_npz(source) -> dict:
+def _load_npz(source):
     with np.load(source) as data:
         coords = data["coords"]
         dists = data["dists"]
@@ -53,7 +51,7 @@ def _load_npz(source) -> dict:
     }
 
 
-def compute_stat_features(dists: torch.Tensor) -> torch.Tensor:
+def compute_stat_features(dists):
     """Compute per-node distance statistics."""
 
     return torch.cat(

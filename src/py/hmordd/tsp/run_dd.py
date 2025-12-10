@@ -1,6 +1,4 @@
 import json
-import multiprocessing as mp
-from pathlib import Path
 
 import hydra
 import numpy as np
@@ -18,7 +16,7 @@ class Runner(BaseRunner):
         self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
         self._set_memory_limit()
 
-    def _get_save_path(self, save_type: str) -> Path:
+    def _get_save_path(self, save_type):
         if save_type == "sols":
             base_path = Paths.sols
         elif save_type == "dds":
@@ -34,7 +32,7 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _load_exact_pf(self, pid: int):
+    def _load_exact_pf(self, pid):
         exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
         exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npz"
         if not exact_sol_path.exists():
@@ -55,11 +53,11 @@ class Runner(BaseRunner):
 
     def _stats_dict(
         self,
-        pid: int,
+        pid,
         dd_manager,
-        cardinality_result: dict,
-        instance_data: dict,
-    ) -> dict:
+        cardinality_result,
+        instance_data,
+    ):
         return {
             "pid": [pid],
             "n_exact_pf": [cardinality_result.get("n_exact_pf")],
@@ -89,13 +87,13 @@ class Runner(BaseRunner):
 
     def _save_stats(
         self,
-        pid: int,
+        pid,
         dd_manager,
-        dds_path: Path,
-        sols_path: Path,
-        cardinality_result: dict,
-        instance_data: dict,
-    ) -> None:
+        dds_path,
+        sols_path,
+        cardinality_result,
+        instance_data,
+    ):
         stats = pd.DataFrame(
             self._stats_dict(
                 pid,
@@ -113,7 +111,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving frontier stats for PID {pid}: {exc}")
 
-    def _save_frontier(self, pid: int, dd_manager, sols_path: Path) -> None:
+    def _save_frontier(self, pid, dd_manager, sols_path):
         frontier = dd_manager.frontier
         if frontier is None:
             return
@@ -125,7 +123,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving frontier for PID {pid}: {exc}")
 
-    def _maybe_save_dd(self, pid: int, dd_manager, dds_path: Path) -> None:
+    def _maybe_save_dd(self, pid, dd_manager, dds_path):
         if not getattr(self.cfg, "save_dd", False):
             return
         try:
@@ -143,11 +141,11 @@ class Runner(BaseRunner):
 
     def save(
         self,
-        pid: int,
+        pid,
         dd_manager,
-        cardinality_result: dict,
-        instance_data: dict,
-    ) -> None:
+        cardinality_result,
+        instance_data,
+    ):
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
         self._save_stats(
@@ -161,7 +159,7 @@ class Runner(BaseRunner):
         self._save_frontier(pid, dd_manager, sols_path)
         self._maybe_save_dd(pid, dd_manager, dds_path)
 
-    def worker(self, rank: int) -> None:
+    def worker(self, rank):
         size = self.cfg.prob.size
         dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):

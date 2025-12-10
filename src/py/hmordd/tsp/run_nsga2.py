@@ -73,7 +73,7 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _compute_defaults(self, n_vars: int, n_objs: int, cutoff: str):
+    def _compute_defaults(self, n_vars, n_objs, cutoff):
         if cutoff not in ["restrict", "5xrestrict"]:
             raise ValueError("Invalid cutoff. Must be 'restrict' or '5xrestrict'.")
         
@@ -90,7 +90,7 @@ class Runner(BaseRunner):
 
         return pop_size, run_time
 
-    def _run_nsga2(self, instance_data, pid, pop_size: int, run_time: int, run_seed: int):
+    def _run_nsga2(self, instance_data, pid, pop_size, run_time, run_seed):
         problem = TSPProblem(instance_data)
         
         algorithm = NSGA2(

@@ -93,7 +93,7 @@ class NOSHE2E(NOSH):
             / f"{self.cfg.model.type}_best_model.pt"
         )
 
-    def _load_model(self) -> ParetoNodePredictor:
+    def _load_model(self):
         model = ParetoNodePredictor(self.cfg.model).to(self.device)
         ckpt_path = self._checkpoint_path()
         if not ckpt_path.exists():
