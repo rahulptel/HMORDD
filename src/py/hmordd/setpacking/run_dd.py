@@ -19,7 +19,7 @@ class Runner(BaseRunner):
 
         self._set_memory_limit()
 
-    def _get_save_path(self, save_type: str) -> Path:
+    def _get_save_path(self, save_type):
         if save_type == "sols":
             base_path = Paths.sols
         elif save_type == "dds":
@@ -33,7 +33,7 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _save_dd_stats(self, pid: int, dd_manager, dds_save_path: Path) -> None:
+    def _save_dd_stats(self, pid, dd_manager, dds_save_path):
         stats = {
             "pid": [pid],
             "total_nodes": [self._get_env_stat(dd_manager.env, "get_total_nodes_count")],
@@ -64,15 +64,7 @@ class Runner(BaseRunner):
         except Exception:
             return -2
 
-    def _save_frontier_stats(self, pid: int, dd_manager, sols_save_path: Path) -> None:
-        exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-        exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
-        try:
-            exact_pf = np.load(exact_sol_path)
-        except Exception as e:
-            print(f"Error loading exact Pareto front for PID {pid}: {e}")
-            exact_pf = None
-            
+    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, exact_pf):
         cardinality_result = self.metric_calculator.compute_cardinality(
             true_pf=exact_pf,
             approx_pf=dd_manager.frontier
@@ -96,7 +88,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving frontier statistics for PID {pid}: {exc}")
 
-    def _save_frontier(self, pid: int, dd_manager, sols_save_path: Path) -> None:
+    def _save_frontier(self, pid, dd_manager, sols_save_path):
         frontier = dd_manager.frontier
         if frontier is None:
             return
@@ -108,7 +100,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving frontier for PID {pid}: {exc}")
 
-    def _maybe_save_dd(self, pid: int, dd_manager, dds_save_path: Path) -> None:
+    def _maybe_save_dd(self, pid, dd_manager, dds_save_path):
         if not getattr(self.cfg, "save_dd", False):
             return
         if not hasattr(dd_manager, "get_decision_diagram"):
@@ -126,25 +118,36 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid: int, dd_manager) -> None:
+    def save(self, pid, dd_manager, exact_pf):
         dds_save_path = self._get_save_path("dds")
         sols_save_path = self._get_save_path("sols")
 
         self._save_dd_stats(pid, dd_manager, dds_save_path)
         self._save_frontier(pid, dd_manager, sols_save_path)
-        self._save_frontier_stats(pid, dd_manager, sols_save_path)
+        self._save_frontier_stats(pid, dd_manager, sols_save_path, exact_pf)
         self._maybe_save_dd(pid, dd_manager, dds_save_path)
 
-    def worker(self, rank: int) -> None:
+    def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
+            # Only process if exact Pareto front is available
+            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
+            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+            exact_pf = None
+            try:
+                exact_pf = np.load(exact_sol_path)
+            except Exception as e:
+                print(f"Error loading exact Pareto front for PID {pid}: {e}")
+            if exact_pf is None:
+                continue
+                
             inst = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
 
             dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
             dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
-            self.save(pid, dd_manager)
+            self.save(pid, dd_manager, exact_pf)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):
