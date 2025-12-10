@@ -21,22 +21,24 @@ class MetricCalculator:
 
     @staticmethod
     def compute_cardinality(true_pf=None, approx_pf=None):
-        if true_pf is None:
+        result = {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1,
+                  'n_exact_pf': -1, 'n_approx_pf': -1}
+        
+        if true_pf is not None and true_pf.size > 0:
+            result['n_exact_pf'] = true_pf.shape[0]
+            
+        if approx_pf is not None and approx_pf.size > 0:
+            result['n_approx_pf'] = approx_pf.shape[0]
+        
+        if result['n_exact_pf'] <= 0:
             print("True PF not available!")
-            return {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1}
-        if approx_pf is None:
+            return result
+        if result['n_approx_pf'] <= 0:
             print("Predicted PF not available!")
-            return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
+            return result
             
         true_pf, approx_pf = np.array(true_pf).astype(np.int64), \
             np.array(approx_pf).astype(np.int64)
-        
-        if true_pf.size == 0:
-            print("True PF not available!")
-            return {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1}
-        if approx_pf.size == 0:
-            print("Predicted PF not available!")
-            return {'cardinality': 0, 'cardinality_raw': 0, 'precision': 0}
 
         assert true_pf.ndim == approx_pf.ndim == 2
         assert true_pf.shape[1] == approx_pf.shape[1]
@@ -47,10 +49,12 @@ class MetricCalculator:
                  'formats': [true_pf.dtype] * n_objs}                
         # Finding intersection
         found_ndps = np.intersect1d(true_pf.view(dtype), approx_pf.view(dtype))
-
-        return {'cardinality': found_ndps.shape[0] / true_pf.shape[0], 
-                'cardinality_raw': found_ndps.shape[0],
-                'precision': found_ndps.shape[0] / approx_pf.shape[0]}
+        
+        result['cardinality'] = found_ndps.shape[0] / true_pf.shape[0]
+        result['cardinality_raw'] = found_ndps.shape[0]
+        result['precision'] = found_ndps.shape[0] / approx_pf.shape[0]
+        
+        return result
 
 
 class Baseline(ABC):
