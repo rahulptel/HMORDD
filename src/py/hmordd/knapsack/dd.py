@@ -12,12 +12,12 @@ class NOSHRule(NOSH):
         self.rule = rule
 
     def score_nodes(self, layer):
-        if self.rule == "min_weight":
-            idx_score = [(i, n["s"][0]) for i, n in enumerate(layer)]
+        if self.rule == "Scal-":
+            idx_score = [(i, n[0]) for i, n in enumerate(layer)]
             idx_score = sorted(idx_score, key=lambda x: x[1])
 
-        elif self.rule == "max_weight":
-            idx_score = [(i, n["s"][0]) for i, n in enumerate(layer)]
+        elif self.rule == "Scal+":
+            idx_score = [(i, n[0]) for i, n in enumerate(layer)]
             idx_score = sorted(idx_score, key=lambda x: x[1], reverse=True)
 
         return [i[0] for i in idx_score]
@@ -98,7 +98,7 @@ class KnapsackRestrictedDDManager(KnapsackDDManager):
         self.env = None
         self.scorer = None
         
-        if self.cfg.dd.nosh in ["max_weight", "min_weight"]:
+        if self.cfg.dd.nosh in ["Scal+", "Scal-"]:
             self.scorer = NOSHRule(self.cfg.dd.nosh)
         elif self.cfg.dd.nosh == "FE":
             self.scorer = NOSHFE()
@@ -113,12 +113,10 @@ class KnapsackRestrictedDDManager(KnapsackDDManager):
     def build_dd(self):
         # Set the variable used to generate the next layer
         lid = 0
-        self.set_var_layer(self.env)
 
         # Restrict and build
         while lid < self.cfg.prob.n_vars - 1:
             self.env.generate_next_layer()
-            self.set_var_layer(self.env)
             lid += 1
 
             layer = self.env.get_layer(lid)
@@ -128,7 +126,6 @@ class KnapsackRestrictedDDManager(KnapsackDDManager):
                 if len(removed_idxs):
                     self.env.approximate_layer(lid, 
                                                CONST.RESTRICT, 
-                                               1, 
                                                removed_idxs)
 
         # Generate terminal layer

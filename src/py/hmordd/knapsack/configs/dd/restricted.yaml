@@ -1,0 +1,6 @@
+# Parameters for restricted DD
+type: restricted
+width: 2500 # Max width for restricted DD
+# Options: Scal+ | FE
+nosh: Scal+
+  

@@ -31,12 +31,12 @@ class Runner(BaseRunner):
 
     def _load_exact_pf(self, pid):
         exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-        exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+        exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npz"
         if not exact_sol_path.exists():
             print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")
             return None
         try:
-            return np.load(exact_sol_path)
+            return np.load(exact_sol_path)['z']
         except Exception as exc:
             print(f"Error loading exact Pareto front for PID {pid}: {exc}")
             return None
