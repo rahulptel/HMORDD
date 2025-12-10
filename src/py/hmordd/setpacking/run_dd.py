@@ -81,6 +81,8 @@ class Runner(BaseRunner):
         
         stats = {
             "pid": [pid],
+            "n_exact_pf": [cardinality_result['n_exact_pf']],
+            "n_approx_pf": [cardinality_result['n_approx_pf']],
             "cardinality": [cardinality_result['cardinality']],
             "precision": [cardinality_result['precision']],
             "cardinality_raw": [cardinality_result['cardinality_raw']],
