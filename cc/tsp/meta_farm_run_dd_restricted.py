@@ -61,7 +61,7 @@ def generate_table_lines():
         for case_idx in range(cases):
             pid_start = offset + case_idx * INSTANCES_PER_CASE
             pid_end = min(pid_start + INSTANCES_PER_CASE, offset + total_instances)
-            for rule in ["OrdMeanHigh", "OrdMaxHigh", "OrdMinHigh", 
+            for rule in ["E2E", "OrdMeanHigh", "OrdMaxHigh", "OrdMinHigh", 
                          "OrdMeanLow", "OrdMaxLow", "OrdMinLow"]:
                 command = build_command(n_objs, n_vars, pid_start, pid_end, rule)
                 lines.append(f"{case_id} {command}")
@@ -71,7 +71,7 @@ def generate_table_lines():
 
 def main():
     lines = generate_table_lines()
-    TABLE_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    TABLE_PATH.write_text("\n".join(lines) + "\n")
     print(f"Wrote {len(lines)} cases to {TABLE_PATH}")
 
 
