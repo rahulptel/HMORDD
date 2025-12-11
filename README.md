@@ -1,96 +1,110 @@
 # HMORDD
 
-Heuristic Multiobjective Optimization using Restricted Decision Diagrams (HMORDD) is a research codebase for exploring decision-diagram-based methods for multiobjective discrete optimization.  The project studies how restricted decision diagrams built with handcrafted or machine-learned heuristics can approximate the Pareto frontier with far less computation than enumerating an exact DD.  In particular, we focus on heuristics that identify the small fraction of *Pareto nodes*—nodes that lie on paths leading to non-dominated solutions—so that the remaining nodes can be pruned without sacrificing frontier quality.
+Heuristic Multiobjective Optimization using Restricted Decision Diagrams (HMORDD) explores how handcrafted and learned heuristics can shrink decision diagrams while preserving high-quality Pareto frontiers. The codebase now carries full C++/Python pipelines for three problem classes: set packing, knapsack, and travelling salesperson.
 
-## Repository layout
+## Layout
 
-```
-HMORDD/
-├── src/
-│   ├── cpp/
-│   │   ├── common/              # Generic BDD utilities shared by all problems
-│   │   └── setpacking/          # Set packing specific decision diagram implementation
-│   └── py/
-│       └── hmordd/
-│           ├── __init__.py      # Path management and shared package initialisation
-│           ├── common/          # Python-side DD interfaces and utilities
-│           └── setpacking/      # Set packing specific pipelines and configs
-├── resources/                   # Expected location for compiled libs and generated instances
-├── outputs/                     # Generated decision diagrams and solution frontiers
-└── results/                     # Experiment summaries and analysis artifacts
-```
+- `src/cpp/` – C++ DD environments (`common/`, `setpacking/`, `knapsack/`, `tsp/`) compiled with pybind11.
+- `src/py/hmordd/` – Python package with shared utilities plus problem-specific pipelines (`setpacking/`, `knapsack/`, `tsp/`).
+- `resources/bin/<problem>/` – Built shared libraries (`lib<problem>envo<N>.so`), auto-added to `sys.path` by `hmordd.Paths`.
+- `resources/instances/<problem>/<size>/<split>/` – Generated datasets; `<size>` is `<n_objs>_<n_vars>`.
+- `resources/checkpoints/`, `resources/pretrained/` – Learned models for ML-based node selectors.
+- `outputs/{dds,sols}/` – Experiment artifacts (DD stats, saved diagrams, Pareto fronts). `outputs-nibi/outputs/` holds archived runs from the nibi machine for offline analysis.
+- `scripts/` – Helpers such as `build_all_cpp.sh` to compile every `makelibcmd.sh`.
 
-Problem-specific code lives under `src/cpp/<problem>` and `src/py/hmordd/<problem>`.  Each problem package is free to tailor its decision diagram builders, instance generators, heuristics, and ML workflows without impacting other problem classes.  During the refactor we will add `knapsack/` and `tsp/` siblings to the existing `setpacking/` modules.
+## Build the C++ extensions
 
-## C++ decision diagram libraries
-
-The C++ layer constructs, reduces, and enumerates multiobjective decision diagrams.  Common building blocks such as BDD nodes, algorithms, and utility routines sit under `src/cpp/common`.  Problem-specific environments wrap these primitives.  For example, `src/cpp/setpacking/setpackingenv.hpp` exposes the `SetpackingEnv` class that owns the set packing instance data, builds exact or restricted BDDs, and enumerates the Pareto frontier.
-
-Shared libraries are built with `pybind11` so they can be loaded from Python.  Each problem package provides a helper script for compilation; for set packing the script is `src/cpp/setpacking/makelibcmd.sh`.  It recompiles `libsetpackingenv.cpp` for each supported objective count and emits modules named `libsetpackingenvo<N>.so`.  Run the script from the problem directory after installing a C++17 compiler and `pybind11`:
+Use the helper script to build everything (or filter by problem):
 
 ```bash
-cd src/cpp/setpacking
+bash scripts/build_all_cpp.sh          # build all problems
+bash scripts/build_all_cpp.sh setpacking knapsack
+```
+
+To build one problem manually:
+
+```bash
+cd src/cpp/setpacking   # or knapsack, tsp
 bash makelibcmd.sh
 ```
 
-Place the generated `.so` files in `resources/bin/setpacking/` (the Python package automatically adds this directory to `sys.path`), or adjust `PYTHONPATH` so the modules are discoverable.
+Artifacts are emitted to `resources/bin/<problem>/` with objective-count-specific names (`libsetpackingenvo<N>.so`, `libknapsackenvo<N>.so`, `libtspenvo<N>.so`). Set `machine=cc` or `machine=desktop` to reuse the dynamic extension suffix detected by `python3-config`; otherwise a static suffix is used.
 
-## Python workflows
+## Set packing workflow
 
-The Python package orchestrates experiments and provides integration points for heuristics and learning-based models.  The top-level initialiser (`src/py/hmordd/__init__.py`) defines a `Paths` helper that standardises where resources, outputs, and results live.  The `common/` package contributes abstract interfaces such as `DDManager` for managing the lifecycle of a decision diagram run, generic node-selection heuristics (NOSH), and utility helpers for metrics and multiprocessing support.
-
-The set packing package demonstrates the expected structure for a problem class:
-
-- **Configurations** – Hydra configuration files in `src/py/hmordd/setpacking/configs/` capture experiment parameters such as instance sizes (`generate_instances.yaml`), Pareto enumeration settings (`prob/setpacking.yaml`), and DD types (`dd/exact.yaml` and `dd/restricted.yaml`).
-- **Instance generation** – `generate_instances.py` produces synthetic instances following the Stidsen generator.  Splits are now saved under `resources/instances/setpacking/<n_objs>_<n_vars>/`, matching the underscore naming used in the file prefix (`sp_<seed>_<n_objs>_<n_vars>_<pid>.dat`).
-- **Decision diagram runners** – `dd.py` implements `SetPackingDDManager` plus exact and restricted subclasses that call into the compiled C++ environment.  `run_dd.py` loads Hydra configs, fetches instances, builds the requested DD, enumerates the Pareto frontier, and saves frontier statistics under `outputs/`.
-- **Baselines and heuristics** – `common/nosh.py` contains reusable node-selection heuristics.  The `setpacking/nsga2.py` module currently stubs out an NSGA-II baseline that will be extended with a full evolutionary algorithm during future development.
-
-### Typical workflow for set packing
-
-1. **Compile the problem-specific libraries** (if not already built)
-   ```bash
-   cd src/cpp/setpacking
-   bash makelibcmd.sh
-   mkdir -p ../../../resources/bin/setpacking
-   mv libsetpackingenvo*.so ../../../resources/bin/setpacking/
-   ```
-
-2. **Generate instances**
+- **Generate instances** (Stidsen generator; outputs `sp_<seed>_<n_objs>_<n_vars>_<pid>.dat` under `resources/instances/setpacking/`):
   ```bash
   cd src/py
-  # Single configuration
-  python -m hmordd.setpacking.generate_instances
-
-  # Sweep over multiple sizes/objectives (Hydra multi-run)
-  python -m hmordd.setpacking.generate_instances --multirun \\
-      n_vars=100,150 n_objs=3,4,5,6,7 seed=42 n_train=0 n_val=0 n_test=100
+  python -m hmordd.setpacking.generate_instances n_objs=3 n_vars=100 seed=42
+  # Hydra multi-run example
+  python -m hmordd.setpacking.generate_instances --multirun n_vars=100,150 n_objs=3,4,5 seed=42 n_train=0 n_val=0 n_test=50
   ```
-  Edit `configs/generate_instances.yaml` to control the number of variables, objectives, dataset sizes, and sweep output behaviour (multi-runs now execute from the workspace root instead of creating Hydra's default `multirun/` directory).
+- **Exact DD** (produces reference Pareto fronts in `outputs/sols/setpacking/<size>/<split>/exact/`):
+  ```bash
+  python -m hmordd.setpacking.run_dd dd=exact split=test from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=100
+  ```
+- **Restricted DD** (prunes with NOSH rule; skips instances without an exact frontier on disk):
+  ```bash
+  python -m hmordd.setpacking.run_dd dd=restricted dd.width=50 dd.nosh.rule=1 split=test from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=100
+  ```
+  Outputs live under `outputs/{dds,sols}/setpacking/<size>/<split>/restricted/width-<width>-nosh-<rule>/`.
+- **NSGA-II baseline** (implemented with pymoo; defaults for population and runtime depend on `n_vars`, `n_objs`, and `nsga2.cutoff`):
+  ```bash
+  python -m hmordd.setpacking.run_nsga2 split=test from_pid=0 to_pid=20 inst_seed=42 nsga2.cutoff=restrict
+  ```
+  Results are stored in `outputs/sols/setpacking/<size>/<split>/nsga2/pop<...>_time<...>/` with per-seed CSV/NPY pairs.
+- **Summaries** – Aggregate existing runs (local `outputs/` or the archived `outputs-nibi/outputs/`):
+  ```bash
+  python -m hmordd.setpacking.summarize_results --outputs-root outputs --save-csv setpacking-summary.csv
+  ```
 
-3. **Run decision diagram experiments**
-   ```bash
-   cd src/py
-   python -m hmordd.setpacking.run_dd dd=restricted dd.width=50 dd.nosh.rule=1 split=train from_pid=0 to_pid=10
-   ```
-   Adjust the Hydra overrides to toggle between exact and restricted diagrams, select dataset splits, and control batch sizes.
+## Knapsack workflow
 
-4. **Analyse results** – Frontier `.npy` files and DD statistics are written to `outputs/`.  Scripts for ML-based heuristics and evolutionary baselines will read from the same directory structure.
+- **Generate instances** (uncorrelated items, single-capacity constraint):
+  ```bash
+  cd src/py
+  python -m hmordd.knapsack.generate_instances prob.n_objs=4 prob.n_vars=50 seed=42
+  ```
+- **Exact DD** (writes `.npz` fronts to `outputs/sols/knapsack/<size>/<split>/exact/`):
+  ```bash
+  python -m hmordd.knapsack.run_dd dd=exact split=train from_pid=0 to_pid=50 prob.n_objs=4 prob.n_vars=50
+  ```
+- **Restricted DD** – Choose `dd.nosh=Scal+`/`Scal-` for rule-based pruning or `dd.nosh=FE` to use the XGBoost scorer (expects pretrained models under `resources/pretrained/gbt/knapsack/<size>/`):
+  ```bash
+  python -m hmordd.knapsack.run_dd dd=restricted dd.width=2500 dd.nosh=Scal+ split=test from_pid=0 to_pid=50 prob.n_objs=4 prob.n_vars=50
+  ```
+- **NSGA-II baseline** – Population/time defaults are defined for sizes (7 obj,40 var), (4 obj,50 var), and (3 obj,80 var):
+  ```bash
+  python -m hmordd.knapsack.run_nsga2 split=test from_pid=0 to_pid=20 inst_seed=42 prob.n_objs=4 prob.n_vars=50
+  ```
 
-## Adding new problem classes
+## Travelling salesperson workflow
 
-The upcoming `knapsack` and `tsp` problem classes will mirror the set packing layout:
+- **Generate instances** (integer coordinates on a grid saved as `.npz`):
+  ```bash
+  cd src/py
+  python -m hmordd.tsp.generate_instances prob.n_objs=3 prob.n_vars=15 seed=7
+  ```
+- **Exact DD**:
+  ```bash
+  python -m hmordd.tsp.run_dd dd=exact split=train from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=15
+  ```
+- **Restricted DD** – `dd.nosh` supports rule-based scoring (`OrdMeanHigh`, `OrdMaxHigh`, `OrdMinHigh`, `OrdMeanLow`, `OrdMaxLow`, `OrdMinLow`) or `E2E`, which loads a graph transformer checkpoint from `resources/checkpoints/tsp/<size>/<model>_best_model.pt`:
+  ```bash
+  python -m hmordd.tsp.run_dd dd=restricted dd.width=4804 dd.nosh=OrdMeanHigh split=test from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=15
+  ```
+- **NSGA-II baseline** – Defaults cover 15-city, 3–4 objective instances:
+  ```bash
+  python -m hmordd.tsp.run_nsga2 split=test from_pid=0 to_pid=20 inst_seed=42 prob.n_objs=3 prob.n_vars=15
+  ```
 
-- Implement the core decision diagram environment in `src/cpp/<problem>/`, reusing shared code from `src/cpp/common/`.
-- Provide a `makelibcmd.sh` script (or similar) that compiles pybind11 modules named `lib<problem>envo<N>.so`.
-- Create a Python package at `src/py/hmordd/<problem>/` with Hydra configs, instance generators, DD managers, and integration hooks for heuristics or learning components.
-- Update `hmordd/__init__.py` to add the new binary directory to `sys.path` so Python can import the compiled modules.
+## Outputs and metrics
 
-Following this structure keeps each problem self-contained while sharing utilities across the repository, enabling rapid experimentation without cross-problem coupling.  It also matches the experimental scope of the HMORDD paper, which compares handcrafted and learning-guided restricted DD heuristics on multiobjective knapsack, set packing, and travelling salesperson benchmarks.
+- DD statistics and Pareto fronts are written to `outputs/dds/<problem>/...` and `outputs/sols/<problem>/...`. Set `save_dd=true` to also dump DD structures as JSON.
+- Restricted runs report cardinality and precision against the saved exact frontier when available; otherwise metrics are set to sentinel values.
+- The bundled `outputs-nibi/outputs/` directory mirrors the same layout for previously collected runs.
 
 ## Dependencies
 
-- **C++:** GCC or Clang with C++17 support, `pybind11`, and the Python development headers used by `python3-config`.
-- **Python:** Python 3.8+, `hydra-core`, `numpy`, `pandas`, `torch`, and other packages imported throughout the modules (install via `pip install -r requirements.txt` once defined).  Some scripts also rely on `multiprocessing` and `signal` from the standard library.
-
-Set up a virtual environment, install the Python requirements, build the C++ extensions, and populate `resources/instances/` with generated or benchmark instances before launching experiments.
+- **C++:** GCC or Clang with C++17, `pybind11`, and Python development headers (`python3-config --includes/--ldflags`).
+- **Python (3.8+) core packages:** `hydra-core`, `numpy`, `pandas`, `scipy`, `torch`, `xgboost`, `pymoo`, `matplotlib` (for plotting hooks), plus standard library modules used throughout. Create a virtualenv and install these before running the pipelines.
