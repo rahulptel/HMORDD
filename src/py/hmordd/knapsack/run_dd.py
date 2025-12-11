@@ -72,7 +72,7 @@ class Runner(BaseRunner):
             return None
         return build_time + frontier_time
 
-    def _save_stats(self, pid, dd_manager, dds_path, sols_path, cardinality_result, instance_data):
+    def _save_stats(self, pid, dd_manager, dds_path, sols_path, cardinality_result, instance_data):        
         stats = pd.DataFrame(self._stats_dict(pid, dd_manager, cardinality_result, instance_data))
         try:
             stats.to_csv(dds_path / f"{pid}.csv", index=False)
@@ -114,9 +114,15 @@ class Runner(BaseRunner):
     def save(self, pid, dd_manager, cardinality_result, instance_data):
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
-        self._save_stats(pid, dd_manager, dds_path, sols_path, cardinality_result, instance_data)
-        self._save_frontier(pid, dd_manager, sols_path)
-        self._maybe_save_dd(pid, dd_manager, dds_path)
+        if self.cfg.dd.type == "restricted":
+            dds_path_run = dds_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
+            sols_path_run = sols_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
+            dds_path_run.mkdir(parents=True, exist_ok=True)
+            sols_path_run.mkdir(parents=True, exist_ok=True)
+            
+        self._save_stats(pid, dd_manager, dds_path_run, sols_path_run, cardinality_result, instance_data)
+        self._save_frontier(pid, dd_manager, sols_path_run)
+        self._maybe_save_dd(pid, dd_manager, dds_path_run)
 
     def worker(self, rank):
         size = self.cfg.prob.size
