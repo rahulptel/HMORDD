@@ -225,6 +225,9 @@ class Runner(BaseRunner):
                     print(f"Error loading exact Pareto front for PID {pid}: {e}")
             else:
                 print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")                
+            if exact_pf is None:
+                print(f"Skipping PID {pid} as exact Pareto front is not available.")
+                continue
             
             sols_save_path = sols_save_path / f"pop{pop_size}_time{run_time}"
             sols_save_path.mkdir(parents=True, exist_ok=True)
