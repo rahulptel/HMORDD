@@ -229,8 +229,8 @@ class Runner(BaseRunner):
                 print(f"Skipping PID {pid} as exact Pareto front is not available.")
                 continue
             
-            sols_save_path = sols_save_path / f"pop{pop_size}_time{run_time}"
-            sols_save_path.mkdir(parents=True, exist_ok=True)
+            sols_save_path_run = sols_save_path / f"pop{pop_size}_time{run_time}"
+            sols_save_path_run.mkdir(parents=True, exist_ok=True)
             for run_seed in getattr(self.cfg, "trial_seeds", [1, 2, 3, 4, 5]):
                 start_time = time.time()
                 approx_pf = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
@@ -258,13 +258,13 @@ class Runner(BaseRunner):
                     print(f"Did not find feasible solution: {pid} (seed={run_seed})")
                     
                 
-                self._save_frontier(pid, run_seed, approx_pf, sols_save_path)
+                self._save_frontier(pid, run_seed, approx_pf, sols_save_path_run)
                 self._save_stats(
                     pid,
                     cardinality_result,
                     time_taken,
                     n_approx_pf,
-                    sols_save_path,
+                    sols_save_path_run,
                     instance_data,
                     pop_size,
                     run_time,
