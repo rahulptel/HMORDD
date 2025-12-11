@@ -114,6 +114,8 @@ class Runner(BaseRunner):
     def save(self, pid, dd_manager, cardinality_result, instance_data):
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
+        dds_path_run = dds_path
+        sols_path_run = sols_path
         if self.cfg.dd.type == "restricted":
             dds_path_run = dds_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
             sols_path_run = sols_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
