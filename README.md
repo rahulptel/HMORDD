@@ -1,6 +1,12 @@
-# HMORDD
+# Heuristic Multiobjective Discrete Optimization using Restricted Decision Diagrams
 
-Heuristic Multiobjective Optimization using Restricted Decision Diagrams (HMORDD) explores how handcrafted and learned heuristics can shrink decision diagrams while preserving high-quality Pareto frontiers. The codebase now carries full C++/Python pipelines for three problem classes: set packing, knapsack, and travelling salesperson.
+> Official Implementation. 
+The appendix is available at: https://github.com/rahulptel/HMORDD/blob/main/APPENDIX.pdf
+
+Decision diagrams (DDs) have emerged as a state-of-the-art method for exact multiobjective integer linear programming. When the DD is too large to fit into memory or the decision-maker prefers a fast approximation to the Pareto frontier, the complete DD must be restricted to a subset of its states (or nodes). We introduce new node-selection heuristics for constructing restricted DDs that produce a high-quality approximation of the Pareto frontier. Depending on the structure of the problem, our heuristics are based on either simple rules, machine learning with feature engineering, or end-to-end deep learning. Experiments on multiobjective knapsack, set packing, and traveling salesperson problems show that our approach is highly effective: it recovers more than $85\%$ of the Pareto frontier at a fraction of the running time of enumeration over exact DDs while producing very few non-Pareto solutions. The code and appendix is available at https://github.com/rahulptel/HMORDD.
+
+> Multiobjective Optimization, Decision Diagrams and Machine Learning.
+
 
 ## Layout
 
