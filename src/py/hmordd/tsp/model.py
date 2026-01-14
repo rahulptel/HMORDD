@@ -219,7 +219,7 @@ class ParetoNodePredictor(nn.Module):
         super(ParetoNodePredictor, self).__init__()
         self.concat_emb = cfg.concat_emb
         self.act = nn.ReLU() if cfg.act == "relu" else nn.GELU()
-        self.token_encoder = TokenEmbedGraph(cfg)
+        self.token_encoder = TokenEmbedGraph(cfg, n_node_feat=cfg.n_node_feat)
         self.graph_encoder = GTEncoder(cfg)
         self.visit_encoder = nn.Embedding(self.NODE_VISIT_TYPES, cfg.d_emb)
         self.node_visit_encoder1 = nn.Sequential(

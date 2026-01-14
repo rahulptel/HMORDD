@@ -1,7 +1,7 @@
 # Graph transformer configuration for Pareto node predictor
 type: gtf
 version: 1
-n_node_feat: 2
+n_node_feat: 7
 n_edge_type: 2
 d_emb: 32
 top_k: 5
