@@ -19,6 +19,7 @@ class Paths:
     
     bin = resources / "bin"
     instances = resources / "instances"
+    dataset = outputs / "dataset"
     
     dds = outputs / "dds"
     sols = outputs / "sols"

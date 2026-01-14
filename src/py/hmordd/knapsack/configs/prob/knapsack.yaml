@@ -10,3 +10,5 @@ maximization: true
 dominance: 0
 bdd_type: 0
 maxwidth: 0
+layer_norm_const: 100
+state_norm_const: 1000

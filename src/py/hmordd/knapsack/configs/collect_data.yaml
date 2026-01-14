@@ -1,0 +1,29 @@
+defaults:
+  - _self_
+  - prob: knapsack
+  - dd: exact
+  - model: gbt
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+from_pid: 0
+to_pid: 1000
+n_processes: 1
+split: train
+seed: 7
+seed_dataset: 1234
+
+data:
+  with_parent: false
+  neg_to_pos_ratio: 1.0
+  layer_weight: null
+  concat: false
+  zip: false
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: ''

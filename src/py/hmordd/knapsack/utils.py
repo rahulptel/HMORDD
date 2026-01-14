@@ -105,3 +105,16 @@ def get_dataset_prefix(with_parent=False, layer_weight=None, neg_to_pos_ratio=1.
         prefix = "default"
 
     return prefix
+
+
+def get_dataset_path(cfg):
+    """
+    Build the path where collected training data will be stored.
+
+    Layout: outputs/dataset/<prob>/<model>/<size>/<split>/<prefix>/
+    """
+    with_parent = getattr(getattr(cfg, "data", cfg), "with_parent", False)
+    layer_weight = getattr(getattr(cfg, "data", cfg), "layer_weight", None)
+    neg_to_pos_ratio = getattr(getattr(cfg, "data", cfg), "neg_to_pos_ratio", 1.0)
+    prefix = get_dataset_prefix(with_parent, layer_weight, neg_to_pos_ratio)
+    return Paths.dataset / cfg.prob.name / cfg.model.type / cfg.prob.size / cfg.split / prefix
