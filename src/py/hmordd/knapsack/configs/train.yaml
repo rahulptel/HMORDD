@@ -1,0 +1,41 @@
+defaults:
+  - _self_
+  - prob: knapsack
+  - model: gbt
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+seed: 7
+device: cpu
+
+dataset:
+  version: 1
+  train:
+    from_pid: 0
+    to_pid: 1000
+  val:
+    from_pid: 1000
+    to_pid: 1100
+
+# Options that define the dataset prefix (should mirror collect_data).
+data:
+  with_parent: false
+  neg_to_pos_ratio: 1.0
+  layer_weight: null
+
+# Training-time weighting/label behaviour.
+bdd_data:
+  flag_layer_penalty: true
+  layer_penalty: exponential
+  flag_importance_penalty: true
+  penalty_aggregation: sum
+  neg_to_pos_ratio: 1
+  label: binary
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: ''
