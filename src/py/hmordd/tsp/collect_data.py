@@ -12,6 +12,7 @@ import numpy as np
 
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
+from hmordd.common.utils import append_pf_dom_path
 from hmordd.tsp import PROB_NAME, PROB_PREFIX
 
 
@@ -30,6 +31,7 @@ class DataCollector(BaseRunner):
             / self.cfg.split
             / "exact"
         )
+        frontier_dir = append_pf_dom_path(frontier_dir, self.cfg, include_dominance=False)
         npz_path = frontier_dir / f"{pid}.npz"
         if npz_path.exists():
             try:

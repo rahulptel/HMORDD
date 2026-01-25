@@ -9,6 +9,7 @@ import numpy as np
 
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
+from hmordd.common.utils import append_pf_dom_path
 from hmordd.knapsack.dd import DDManagerFactory
 from hmordd.knapsack.featurizer import (
     FeaturizerConfig,
@@ -32,6 +33,7 @@ class DataCollector(BaseRunner):
     def _load_frontier(self, pid):
         """Load the saved exact Pareto frontier (expects solutions with decision vectors)."""
         frontier_dir = Paths.sols / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / "exact"
+        frontier_dir = append_pf_dom_path(frontier_dir, self.cfg, include_dominance=True)
         npz_path = frontier_dir / f"{pid}.npz"
         if npz_path.exists():
             try:

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator
+from hmordd.common.utils import MetricCalculator, append_pf_dom_path
 from hmordd.knapsack.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -38,10 +38,10 @@ class KnapsackProblem(Problem):
 
     def _evaluate(self, X, out, *args, **kwargs):
         # Calculate objectives
-        # maximize value -> minimize negative value
+        # maximize value -> minimize negative value (pymoo minimizes by default)
         # self.V is list of value vectors (one per objective)
         # We need to compute dot product for each objective
-        out["F"] = np.dot(X, self.V.T)
+        out["F"] = -np.dot(X, self.V.T)
         
         # Calculate constraint
         # sum(w * x) <= C  => sum(w * x) - C <= 0
@@ -114,7 +114,7 @@ class Runner(BaseRunner):
             algorithm,
             termination,
             seed=int(run_seed),
-            verbose=False,
+            verbose=self.cfg.nsga2.verbose,
             save_history=False,
         )
 
@@ -199,8 +199,10 @@ class Runner(BaseRunner):
                 else self.cfg.nsga2.run_time
             )
             
-            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
+            exact_sol_path = exact_sol_path / self.cfg.split / "exact"
+            exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=True)
+            exact_sol_path = exact_sol_path / f"{pid}.npy"
             exact_pf = None
             if exact_sol_path.exists():
                 try:

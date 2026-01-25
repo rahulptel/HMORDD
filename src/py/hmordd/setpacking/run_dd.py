@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator
+from hmordd.common.utils import MetricCalculator, append_pf_dom_path
 from hmordd.setpacking.dd import DDManagerFactory
 from hmordd.setpacking.utils import get_instance_data
 
@@ -27,6 +27,7 @@ class Runner(BaseRunner):
             raise ValueError(f"Unknown save_type '{save_type}'")
 
         save_path = base_path / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / self.cfg.dd_type
+        save_path = append_pf_dom_path(save_path, self.cfg, include_dominance=True)
         if self.cfg.dd_type == "restricted":
             save_path = save_path / f"width-{self.cfg.dd.width}-nosh-{self.cfg.dd.nosh.rule}"
         save_path.mkdir(parents=True, exist_ok=True)
@@ -131,8 +132,10 @@ class Runner(BaseRunner):
             print(f"Processing PID: {pid} on rank {rank}")
             if self.cfg.dd.type == "restricted":
                 # Only process if exact Pareto front is available
-                exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-                exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npy"
+                exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
+                exact_sol_path = exact_sol_path / self.cfg.split / "exact"
+                exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=True)
+                exact_sol_path = exact_sol_path / f"{pid}.npy"
                 exact_pf = None
                 try:
                     exact_pf = np.load(exact_sol_path)
