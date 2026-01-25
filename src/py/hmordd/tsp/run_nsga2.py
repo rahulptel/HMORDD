@@ -1,4 +1,3 @@
-from pandas.compat.numpy import np_version_gte1p22
 import time
 from pprint import pprint
 
