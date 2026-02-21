@@ -1,4 +1,3 @@
-from pandas.compat.numpy import np_version_gte1p22
 import time
 from pprint import pprint
 
@@ -7,7 +6,7 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator
+from hmordd.common.utils import MetricCalculator, append_pf_dom_path
 from hmordd.tsp.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -194,8 +193,10 @@ class Runner(BaseRunner):
                 else self.cfg.nsga2.run_time
             )
             
-            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size 
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact" / f"{pid}.npz"
+            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
+            exact_sol_path = exact_sol_path / self.cfg.split / "exact"
+            exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=False)
+            exact_sol_path = exact_sol_path / f"{pid}.npz"
             exact_pf = None
             if exact_sol_path.exists():
                 try:

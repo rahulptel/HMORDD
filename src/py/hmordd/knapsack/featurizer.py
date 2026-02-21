@@ -42,13 +42,27 @@ feat_names = {'inst': ['n_objs',
                         'rk_des_value.max/wt']}
 
 def get_bdd_node_features_gbt_rank(lidx, node, capacity, layer_norm_const, state_norm_const):
-    # Node features
-    norm_state = node[0] / state_norm_const
-    state_to_capacity = node[0] / capacity
+    # Node features (accepts both tuple-style nodes and dicts from get_dd)
+    state = node["s"][0] if isinstance(node, dict) else node[0]
+    norm_state = state / state_norm_const
+    state_to_capacity = state / capacity
     layers_to_go = (layer_norm_const - lidx) / layer_norm_const
     node_feat = np.array([norm_state, state_to_capacity, layers_to_go])
 
     return node_feat
+
+
+def get_bdd_node_features(lidx, node, prev_layer, capacity, layer_norm_const, state_norm_const, with_parent=False):
+    """
+    Feature vector for a DD node when building supervised datasets.
+
+    The DD returned by the C++ env stores the state in ``node['s']``.
+    Parent information is not currently used but is accepted for API parity.
+    """
+    norm_state = node["s"][0] / state_norm_const
+    state_to_capacity = node["s"][0] / capacity
+    layers_to_go = (layer_norm_const - lidx) / layer_norm_const
+    return np.array([norm_state, state_to_capacity, layers_to_go])
 
 class FeaturizerConfig:
     def __init__(self, norm_const=1000, raw=False, context=True):

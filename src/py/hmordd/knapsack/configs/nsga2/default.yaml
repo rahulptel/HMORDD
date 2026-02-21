@@ -12,3 +12,4 @@ mutation_prob_var:
 # Set the time limit based on the restricted/exact DD run time
 # Options: restrict | 5xrestrict
 cutoff: restrict
+verbose: False

@@ -117,6 +117,23 @@ def handle_timeout(signum, frame):
     raise Exception("Timeout!")
 
 
+def append_pf_dom_path(path, cfg, include_dominance=True):
+    prob_cfg = getattr(cfg, "prob", None)
+    pf_enum_method = getattr(prob_cfg, "pf_enum_method", None)
+    dominance = None
+    if include_dominance:
+        dominance = getattr(prob_cfg, "dominance", None)
+    if pf_enum_method is None and dominance is None:
+        return path
+    suffix_parts = []
+    if pf_enum_method is not None:
+        suffix_parts.append(f"pf-{pf_enum_method}")
+    if dominance is not None:
+        dom_value = int(dominance) if isinstance(dominance, bool) else dominance
+        suffix_parts.append(f"dom-{dom_value}")
+    return path / "-".join(suffix_parts)
+
+
 def read_from_zip(archive_path, file_path_in_zip, format="json"):
     try:
         with zipfile.ZipFile(archive_path, 'r') as zf:
@@ -128,4 +145,3 @@ def read_from_zip(archive_path, file_path_in_zip, format="json"):
     except Exception as e:
         print(f"Error reading from zip: {e}")
         return None
-
