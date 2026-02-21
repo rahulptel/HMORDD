@@ -270,6 +270,10 @@ int KnapsackEnv::restrict_layer(int layer, std::vector<int> states_to_remove)
     bdd->layers[layer] = restricted_layer;
     bdd->fix_indices(layer);
     kp_bdd_constructor.fix_state_map();
+    if (dominance > 0)
+    {
+        kp_bdd_constructor.update_node_weights(bdd);
+    }
 
     return 0;
 }
@@ -309,6 +313,10 @@ int KnapsackEnv::reduce_dd()
     timers.start_timer(compilation_time);
     BDDAlg::reduce(bdd);
     timers.end_timer(compilation_time);
+    if (dominance > 0)
+    {
+        kp_bdd_constructor.update_node_weights(bdd);
+    }
     calculate_bdd_topology_stats(false);
     return 0;
 }
@@ -323,6 +331,11 @@ int KnapsackEnv::compute_pareto_frontier()
 
     MultiObjectiveStats statsMultiObj;
     pareto_frontier = nullptr;
+
+    if (dominance > 0 && (method == 1 || method == 3))
+    {
+        kp_bdd_constructor.update_node_weights(bdd);
+    }
 
     timers.start_timer(pareto_time);
     if (method == 1)

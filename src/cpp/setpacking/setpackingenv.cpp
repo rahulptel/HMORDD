@@ -46,6 +46,7 @@ void SetpackingEnv::clean_memory()
 void SetpackingEnv::initialize()
 {
     maximization = true;
+    dominance = 0;
 
     if (!reused)
     {
@@ -75,9 +76,10 @@ void SetpackingEnv::initialize()
     z_sol.clear();
 }
 
-void SetpackingEnv::reset()
+void SetpackingEnv::reset(int _dominance)
 {
     initialize();
+    dominance = _dominance;
 }
 
 int SetpackingEnv::set_inst(int n_vars,
@@ -293,17 +295,17 @@ void SetpackingEnv::compute_pareto_frontier(int method)
     if (method == 1)
     {
         // -- Optimal BFS algorithm: top-down --
-        pareto_frontier = BDDMultiObj::pareto_frontier_topdown(bdd, maximization, -1, 0, statsMultiObj);
+        pareto_frontier = BDDMultiObj::pareto_frontier_topdown(bdd, maximization, 2, dominance, statsMultiObj);
     }
     else if (method == 2)
     {
         // -- Optimal BFS algorithm: bottom-up --
-        pareto_frontier = BDDMultiObj::pareto_frontier_bottomup(bdd, maximization, -1, 0, statsMultiObj);
+        pareto_frontier = BDDMultiObj::pareto_frontier_bottomup(bdd, maximization, 2, dominance, statsMultiObj);
     }
     else if (method == 3)
     {
         // -- Dynamic layer cutset --
-        pareto_frontier = BDDMultiObj::pareto_frontier_dynamic_layer_cutset(bdd, maximization, -1, 0, statsMultiObj);
+        pareto_frontier = BDDMultiObj::pareto_frontier_dynamic_layer_cutset(bdd, maximization, 2, dominance, statsMultiObj);
     }
     timers.end_timer(pareto_time);
     // delete statsMultiObj;

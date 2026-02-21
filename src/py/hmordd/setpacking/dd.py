@@ -14,7 +14,7 @@ class SetPackingDDManager(DDManager):
         signal.signal(signal.SIGALRM, handle_timeout)
 
         self.env = get_env(self.cfg.prob.n_objs)
-        self.env.reset()
+        self.env.reset(int(self.cfg.prob.dominance))
         print(inst["n_vars"], inst["n_cons"], inst["n_objs"])
         self.env.set_inst(inst["n_vars"], 
                           inst["n_cons"], 

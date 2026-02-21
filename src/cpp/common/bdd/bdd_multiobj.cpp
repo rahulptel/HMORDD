@@ -459,12 +459,11 @@ ParetoFrontier* BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD* bdd, bool
 			for (int i = 0; i < bdd->layers[layer_topdown].size(); ++i) {
 				val_topdown += topdown_layer_value(bdd, bdd->layers[layer_topdown][i]);
 			}
-			// //cout << "DOMINANCE: " << dominance_strategy << endl;
-            // if (dominance_strategy > 0) {
-            //     init = clock();
-			// 	BDDMultiObj::filter_dominance(bdd, layer_topdown, problem_type, dominance_strategy, stats);
-            //     stats->pareto_dominance_filtered += clock()-init;
-			// }
+			if (dominance_strategy > 0) {
+				init = clock();
+				BDDMultiObj::filter_dominance(bdd, layer_topdown, problem_type, dominance_strategy, stats);
+				stats->pareto_dominance_time += clock()-init;
+			}
 		} else {
 			// Expand layer bottomup
 			expand_layer_bottomup(bdd, --layer_bottomup, maximization, mgmr);

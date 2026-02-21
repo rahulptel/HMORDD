@@ -8,7 +8,7 @@ PYBIND11_MODULE(libsetpackingenv, m)
 {
     py::class_<SetpackingEnv>(m, "SetpackingEnv", py::module_local())
         .def(py::init<>())
-        .def("reset", &SetpackingEnv::reset)
+        .def("reset", &SetpackingEnv::reset, py::arg("dominance") = 0)
         .def("set_inst", &SetpackingEnv::set_inst)
         .def("initialize_dd_constructor", &SetpackingEnv::initialize_dd_constructor)
         .def("generate_next_layer", &SetpackingEnv::generate_next_layer)

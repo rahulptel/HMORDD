@@ -43,6 +43,12 @@ struct BDDMultiObj
 
     // Find pareto frontier using dynamic layer cutset
     static ParetoFrontier *pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool maximization = true, const int problem_type = -1, const int dominance_strategy = 0, MultiObjectiveStats *stats = NULL);
+
+    // Filter layer based on dominance
+    static void filter_dominance(BDD *bdd, const int layer, const int problem_type, const int dominance_strategy, MultiObjectiveStats *stats);
+
+    // Filter layer based on dominance / knapsack
+    static void filter_dominance_knapsack(BDD *bdd, const int layer, MultiObjectiveStats *stats);
 };
 
 #endif

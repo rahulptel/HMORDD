@@ -64,13 +64,8 @@ class Runner(BaseRunner):
         except Exception:
             return -2
 
-    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, exact_pf):
-        cardinality_result = self.metric_calculator.compute_cardinality(
-            true_pf=exact_pf,
-            approx_pf=dd_manager.frontier
-        )
-        pprint(cardinality_result)
-        
+    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, cardinality_result):
+                
         stats = {
             "pid": [pid],
             "n_exact_pf": [cardinality_result['n_exact_pf']],
@@ -118,14 +113,21 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid, dd_manager, exact_pf):
+    def save(self, pid, dd_manager, cardinality_result):
         dds_save_path = self._get_save_path("dds")
         sols_save_path = self._get_save_path("sols")
-
-        self._save_dd_stats(pid, dd_manager, dds_save_path)
-        self._save_frontier(pid, dd_manager, sols_save_path)
-        self._save_frontier_stats(pid, dd_manager, sols_save_path, exact_pf)
-        self._maybe_save_dd(pid, dd_manager, dds_save_path)
+        dds_path_run = dds_save_path
+        sols_path_run = sols_save_path
+        if self.cfg.dd.type == "restricted":
+            dds_path_run = dds_save_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
+            sols_path_run = sols_save_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
+            dds_path_run.mkdir(parents=True, exist_ok=True)
+            sols_path_run.mkdir(parents=True, exist_ok=True)
+                
+        self._save_dd_stats(pid, dd_manager, dds_path_run)
+        self._save_frontier(pid, dd_manager, sols_path_run)
+        self._save_frontier_stats(pid, dd_manager, sols_path_run, cardinality_result)
+        self._maybe_save_dd(pid, dd_manager, dds_path_run)
 
     def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
@@ -150,7 +152,17 @@ class Runner(BaseRunner):
             dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
-            self.save(pid, dd_manager, exact_pf)
+
+            approx_pf = dd_manager.frontier
+            if self.cfg.dd.type == "exact":
+                exact_pf = approx_pf
+                
+            cardinality_result = self.metric_calculator.compute_cardinality(
+                true_pf=exact_pf,
+                approx_pf=approx_pf,
+            )
+            print(cardinality_result)                
+            self.save(pid, dd_manager, cardinality_result)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):

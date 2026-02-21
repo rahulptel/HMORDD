@@ -156,6 +156,8 @@ inline Node::Node(const int _layer, int _index)
 		arcs[arc_type] = NULL;
 		weights[arc_type] = NULL;
 	}
+	// Initialize dominance-related state to avoid undefined reads.
+	min_weight = 0;
 }
 
 //

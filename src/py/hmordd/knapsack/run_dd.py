@@ -51,7 +51,7 @@ class Runner(BaseRunner):
             return frontier.get("z")
         return frontier
 
-    def _stats_dict(self, pid, dd_manager, cardinality_result, instance_data):
+    def _stats_dict(self, pid, dd_manager, cardinality_result):
         return {
             "pid": [pid],
             "n_exact_pf": [cardinality_result.get("n_exact_pf")],
@@ -65,8 +65,8 @@ class Runner(BaseRunner):
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
-            "n_objectives": [instance_data.get("n_objs") if instance_data else None],
-            "n_variables": [instance_data.get("n_vars") if instance_data else None],
+            "n_objectives": [self.cfg.prob.n_objs],
+            "n_variables": [self.cfg.prob.n_vars],
             "inst_seed": [self.cfg.seed],
         }
 
@@ -75,8 +75,8 @@ class Runner(BaseRunner):
             return None
         return build_time + frontier_time
 
-    def _save_stats(self, pid, dd_manager, dds_path, sols_path, cardinality_result, instance_data):        
-        stats = pd.DataFrame(self._stats_dict(pid, dd_manager, cardinality_result, instance_data))
+    def _save_stats(self, pid, dd_manager, dds_path, sols_path, cardinality_result):        
+        stats = pd.DataFrame(self._stats_dict(pid, dd_manager, cardinality_result))
         try:
             stats.to_csv(dds_path / f"{pid}.csv", index=False)
         except Exception as exc:
@@ -114,7 +114,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid, dd_manager, cardinality_result, instance_data):
+    def save(self, pid, dd_manager, cardinality_result):
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
         dds_path_run = dds_path
@@ -125,7 +125,7 @@ class Runner(BaseRunner):
             dds_path_run.mkdir(parents=True, exist_ok=True)
             sols_path_run.mkdir(parents=True, exist_ok=True)
             
-        self._save_stats(pid, dd_manager, dds_path_run, sols_path_run, cardinality_result, instance_data)
+        self._save_stats(pid, dd_manager, dds_path_run, sols_path_run, cardinality_result)
         self._save_frontier(pid, dd_manager, sols_path_run)
         self._maybe_save_dd(pid, dd_manager, dds_path_run)
 
@@ -156,7 +156,7 @@ class Runner(BaseRunner):
                 approx_pf=approx_pf,
             )
             print(cardinality_result)
-            self.save(pid, dd_manager, cardinality_result, inst)
+            self.save(pid, dd_manager, cardinality_result)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):
