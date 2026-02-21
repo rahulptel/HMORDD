@@ -27,9 +27,12 @@ using namespace std;
 class ParetoFrontier
 {
 public:
+    explicit ParetoFrontier(bool track_x = true) : track_x(track_x) {}
+
     // (Flat) array of solutions
     // vector<ObjType> sols;
     SolutionList sols;
+    bool track_x;
 
     // Add element to set
     // void add(ObjType *elem);
@@ -97,8 +100,8 @@ class ParetoFrontierManager
 {
 public:
     // Constructor
-    ParetoFrontierManager() {}
-    ParetoFrontierManager(int size)
+    ParetoFrontierManager() : track_x(true) {}
+    ParetoFrontierManager(int size, bool track_x = true) : track_x(track_x)
     {
         frontiers.reserve(size);
     }
@@ -117,7 +120,7 @@ public:
     {
         if (frontiers.empty())
         {
-            return new ParetoFrontier;
+            return new ParetoFrontier(track_x);
         }
         ParetoFrontier *f = frontiers.back();
         f->clear();
@@ -133,6 +136,7 @@ public:
 
     // Preallocated array set
     vector<ParetoFrontier *> frontiers;
+    bool track_x;
 };
 
 // Modify
@@ -227,9 +231,13 @@ inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjT
         // if solution has not been added already, append element to the end
         if (must_add)
         {
-            // Create new solution object
-            Solution new_sol((*itParent).x, (*itParent).obj);
-            new_sol.x.push_back(arc_type);
+            vector<int> new_x;
+            if (track_x)
+            {
+                new_x = (*itParent).x;
+                new_x.push_back(arc_type);
+            }
+            Solution new_sol(new_x, (*itParent).obj);
             for (int o = 0; o < NOBJS; ++o)
             {
                 new_sol.obj[o] = aux[o];
@@ -330,8 +338,8 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
     Solution dummy;
     SolutionList::iterator end = sols.insert(sols.end(), dummy);
 
-    // Reverse X variable order if the offset is from the bottom-up set
-    if (offset_from_bu)
+    // Reverse X variable order if the offset is from the bottom-up set.
+    if (track_x && offset_from_bu)
     {
         reverse(offset_sol.x.begin(), offset_sol.x.end());
     }
@@ -377,7 +385,7 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
         if (must_add)
         {
 
-            if (offset_from_bu)
+            if (track_x && offset_from_bu)
             {
                 Solution new_sol(itParent->x, itParent->obj);
                 new_sol.x.insert(new_sol.x.end(), offset_sol.x.begin(), offset_sol.x.end());
@@ -387,11 +395,21 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
                 }
                 sols.push_back(new_sol);
             }
-            else
+            else if (track_x)
             {
                 Solution new_sol(offset_sol.x, offset_sol.obj);
                 reverse(itParent->x.begin(), itParent->x.end());
                 new_sol.x.insert(new_sol.x.end(), itParent->x.begin(), itParent->x.end());
+                for (int i = 0; i < NOBJS; ++i)
+                {
+                    new_sol.obj[i] = aux[i];
+                }
+                sols.push_back(new_sol);
+            }
+            else
+            {
+                vector<int> new_x;
+                Solution new_sol(new_x, offset_sol.obj);
                 for (int i = 0; i < NOBJS; ++i)
                 {
                     new_sol.obj[i] = aux[i];
@@ -537,11 +555,17 @@ inline map<string, vector<vector<int>>> ParetoFrontier::get_frontier()
     // cout << sols.size() << endl;
     vector<vector<int>> x_sols;
     vector<vector<int>> z_sols;
-    x_sols.reserve(sols.size());
     z_sols.reserve(sols.size());
+    if (track_x)
+    {
+        x_sols.reserve(sols.size());
+    }
     for (SolutionList::iterator it = sols.begin(); it != sols.end(); ++it)
     {
-        x_sols.push_back((*it).x);
+        if (track_x)
+        {
+            x_sols.push_back((*it).x);
+        }
         z_sols.push_back((*it).obj);
     }
 

@@ -16,6 +16,7 @@ KnapsackEnv::KnapsackEnv()
       method(1),
       maximization(true),
       dominance(0),
+      track_x(1),
       bdd_type(0),
       maxwidth(-1),
       n_vars(0),
@@ -68,6 +69,7 @@ void KnapsackEnv::initialize()
     method = 1;
     maximization = true;
     dominance = 0;
+    track_x = 1;
     bdd_type = 0;
     maxwidth = -1;
     order.clear();
@@ -105,6 +107,7 @@ void KnapsackEnv::reset(bool _preprocess,
                         int _method,
                         bool _maximization,
                         int _dominance,
+                        int _track_x,
                         int _bdd_type,
                         int _maxwidth,
                         std::vector<int> _order)
@@ -115,6 +118,7 @@ void KnapsackEnv::reset(bool _preprocess,
     method = _method;
     maximization = _maximization;
     dominance = _dominance;
+    track_x = _track_x;
     bdd_type = _bdd_type;
     maxwidth = _maxwidth;
     order = std::move(_order);
@@ -340,12 +344,14 @@ int KnapsackEnv::compute_pareto_frontier()
     timers.start_timer(pareto_time);
     if (method == 1)
     {
-        pareto_frontier = BDDMultiObj::pareto_frontier_topdown(bdd, maximization, 1, dominance, &statsMultiObj);
+        pareto_frontier = BDDMultiObj::pareto_frontier_topdown(
+            bdd, maximization, 1, dominance, &statsMultiObj, track_x > 0);
     }
     else if (method == 3)
     {
         // -- Dynamic layer cutset -- (knapsack problem type = 1)
-        pareto_frontier = BDDMultiObj::pareto_frontier_dynamic_layer_cutset(bdd, maximization, 1, dominance, &statsMultiObj);
+        pareto_frontier = BDDMultiObj::pareto_frontier_dynamic_layer_cutset(
+            bdd, maximization, 1, dominance, &statsMultiObj, track_x > 0);
     }
     else
     {

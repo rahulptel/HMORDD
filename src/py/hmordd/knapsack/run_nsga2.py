@@ -201,7 +201,9 @@ class Runner(BaseRunner):
             
             exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
             exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-            exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=True)
+            exact_sol_path = append_pf_dom_path(
+                exact_sol_path, self.cfg, include_dominance=True, include_track_x=True
+            )
             exact_sol_path = exact_sol_path / f"{pid}.npy"
             exact_pf = None
             if exact_sol_path.exists():

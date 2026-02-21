@@ -8,6 +8,7 @@ preprocess: true
 pf_enum_method: 1
 maximization: true
 dominance: 0
+track_x: 1
 bdd_type: 0
 maxwidth: 0
 layer_norm_const: 100

@@ -26,14 +26,18 @@ class Runner(BaseRunner):
             raise ValueError(f"Unknown save_type '{save_type}'")
 
         save_path = base_path / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / self.cfg.dd_type
-        save_path = append_pf_dom_path(save_path, self.cfg, include_dominance=True)
+        save_path = append_pf_dom_path(
+            save_path, self.cfg, include_dominance=True, include_track_x=True
+        )
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
     def _load_exact_pf(self, pid):
         exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
         exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-        exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=True)
+        exact_sol_path = append_pf_dom_path(
+            exact_sol_path, self.cfg, include_dominance=True, include_track_x=True
+        )
         exact_sol_path = exact_sol_path / f"{pid}.npz"
         if not exact_sol_path.exists():
             print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")
@@ -52,6 +56,7 @@ class Runner(BaseRunner):
         return frontier
 
     def _stats_dict(self, pid, dd_manager, cardinality_result):
+        print("Frontier Enum time: ", dd_manager.time_frontier)
         return {
             "pid": [pid],
             "n_exact_pf": [cardinality_result.get("n_exact_pf")],

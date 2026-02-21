@@ -99,6 +99,7 @@ class KnapsackDDManager(DDManager):
             self.cfg.prob.pf_enum_method,
             self.cfg.prob.maximization,
             int(self.cfg.prob.dominance),
+            int(getattr(self.cfg.prob, "track_x", 1)),
             self.cfg.prob.bdd_type,
             self.cfg.prob.maxwidth,
             order,

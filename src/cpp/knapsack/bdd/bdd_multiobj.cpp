@@ -20,7 +20,7 @@ inline bool SetPackingStateMinElementSmallestToLargestComp(Node *l, Node *r)
 //
 // Find pareto frontier using top-down approach
 //
-ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization, const int problem_type, int dominance_strategy, MultiObjectiveStats *stats)
+ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization, const int problem_type, int dominance_strategy, MultiObjectiveStats *stats, bool track_x)
 {
 	// cout << "\nComputing Pareto Frontier..." << endl;
 
@@ -31,7 +31,7 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization
 	clock_t time_filter = 0, init;
 
 	// Initialize manager
-	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width());
+	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width(), track_x);
 
 	// Create root solution
 	// list<int> x;
@@ -321,7 +321,7 @@ struct CompareNode
 //
 // Find pareto frontier using dynamic layer cutset
 //
-ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool maximization, const int problem_type, const int dominance_strategy, MultiObjectiveStats *stats)
+ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool maximization, const int problem_type, const int dominance_strategy, MultiObjectiveStats *stats, bool track_x)
 {
 	// Initialize stats
 	stats->pareto_dominance_time = 0;
@@ -329,7 +329,7 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 	clock_t time_filter = 0, init;
 
 	// Create pareto frontier manager
-	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width());
+	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width(), track_x);
 
 	// Create root and terminal frontiers
 	// ObjType sol[NOBJS];
@@ -417,7 +417,7 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 	}
 	expected_size = 10000;
 
-	ParetoFrontier *paretoFrontier = new ParetoFrontier;
+	ParetoFrontier *paretoFrontier = new ParetoFrontier(track_x);
 	// paretoFrontier->sols.reserve(expected_size * NOBJS);
 
 	// cout << "\tconvoluting..." << endl;

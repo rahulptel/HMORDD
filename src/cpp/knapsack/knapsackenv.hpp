@@ -27,6 +27,7 @@ public:
     int method;
     bool maximization;
     int dominance;
+    int track_x;
     int bdd_type;
     int maxwidth;
     std::vector<int> order;
@@ -74,6 +75,7 @@ public:
                int method,
                bool maximization,
                int dominance,
+               int track_x,
                int bdd_type,
                int maxwidth,
                std::vector<int> order);
