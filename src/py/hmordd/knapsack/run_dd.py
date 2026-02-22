@@ -27,7 +27,11 @@ class Runner(BaseRunner):
 
         save_path = base_path / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / self.cfg.dd_type
         save_path = append_pf_dom_path(
-            save_path, self.cfg, include_dominance=True, include_track_x=True
+            save_path,
+            self.cfg,
+            include_dominance=True,
+            include_track_x=True,
+            include_order_type=True,
         )
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
@@ -36,7 +40,11 @@ class Runner(BaseRunner):
         exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
         exact_sol_path = exact_sol_path / self.cfg.split / "exact"
         exact_sol_path = append_pf_dom_path(
-            exact_sol_path, self.cfg, include_dominance=True, include_track_x=True
+            exact_sol_path,
+            self.cfg,
+            include_dominance=True,
+            include_track_x=True,
+            include_order_type=True,
         )
         exact_sol_path = exact_sol_path / f"{pid}.npz"
         if not exact_sol_path.exists():

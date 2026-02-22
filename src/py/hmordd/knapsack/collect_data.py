@@ -38,7 +38,11 @@ class DataCollector(BaseRunner):
         """Load the saved exact Pareto frontier (expects solutions with decision vectors)."""
         frontier_dir = Paths.sols / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / "exact"
         frontier_dir = append_pf_dom_path(
-            frontier_dir, self.cfg, include_dominance=True, include_track_x=True
+            frontier_dir,
+            self.cfg,
+            include_dominance=True,
+            include_track_x=True,
+            include_order_type=True,
         )
         npz_path = frontier_dir / f"{pid}.npz"
         if npz_path.exists():

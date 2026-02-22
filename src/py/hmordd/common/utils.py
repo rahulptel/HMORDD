@@ -117,16 +117,30 @@ def handle_timeout(signum, frame):
     raise Exception("Timeout!")
 
 
-def append_pf_dom_path(path, cfg, include_dominance=True, include_track_x=False):
+def append_pf_dom_path(
+    path,
+    cfg,
+    include_dominance=True,
+    include_track_x=False,
+    include_order_type=False,
+):
     prob_cfg = getattr(cfg, "prob", None)
     pf_enum_method = getattr(prob_cfg, "pf_enum_method", None)
     dominance = None
     track_x = None
+    order_type = None
     if include_dominance:
         dominance = getattr(prob_cfg, "dominance", None)
     if include_track_x:
         track_x = getattr(prob_cfg, "track_x", None)
-    if pf_enum_method is None and dominance is None and track_x is None:
+    if include_order_type:
+        order_type = getattr(prob_cfg, "order_type", None)
+    if (
+        pf_enum_method is None
+        and dominance is None
+        and track_x is None
+        and order_type is None
+    ):
         return path
     suffix_parts = []
     if pf_enum_method is not None:
@@ -137,6 +151,8 @@ def append_pf_dom_path(path, cfg, include_dominance=True, include_track_x=False)
     if track_x is not None:
         track_x_value = int(track_x) if isinstance(track_x, bool) else track_x
         suffix_parts.append(f"trackx-{track_x_value}")
+    if order_type is not None:
+        suffix_parts.append(f"order-{order_type}")
     return path / "-".join(suffix_parts)
 
 
