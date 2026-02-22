@@ -27,6 +27,7 @@ public:
     // Run parameters
     int method;
     bool maximization;
+    int dominance;
     int bdd_type;
     int maxwidth;
     vector<int> order;
@@ -71,7 +72,7 @@ public:
 
     ~SetpackingEnv();
 
-    void reset();
+    void reset(int dominance = 0);
 
     int set_inst(int n_vars,
                  int n_cons,

@@ -71,10 +71,15 @@ Artifacts are emitted to `resources/bin/<problem>/` with objective-count-specifi
   cd src/py
   python -m hmordd.knapsack.generate_instances prob.n_objs=4 prob.n_vars=50 seed=42
   ```
-- **Exact DD** (writes `.npz` fronts to `outputs/sols/knapsack/<size>/<split>/exact/`):
+- **Exact DD** (writes `.npz` fronts under `outputs/sols/knapsack/<size>/<split>/exact/pf-<m>-dom-<d>-trackx-<t>/`):
   ```bash
   python -m hmordd.knapsack.run_dd dd=exact split=train from_pid=0 to_pid=50 prob.n_objs=4 prob.n_vars=50
   ```
+- **Objective-only benchmarking mode** (`prob.track_x=0`) keeps Pareto objectives but skips decision-vector tracking:
+  ```bash
+  python -m hmordd.knapsack.run_dd dd=exact split=test from_pid=0 to_pid=10 prob.track_x=0
+  ```
+- **Dataset generation mode** requires decision tracking (`prob.track_x=1`, default).
 - **Restricted DD** – Choose `dd.nosh=Scal+`/`Scal-` for rule-based pruning or `dd.nosh=FE` to use the XGBoost scorer (expects pretrained models under `resources/pretrained/gbt/knapsack/<size>/`):
   ```bash
   python -m hmordd.knapsack.run_dd dd=restricted dd.width=2500 dd.nosh=Scal+ split=test from_pid=0 to_pid=50 prob.n_objs=4 prob.n_vars=50
@@ -95,6 +100,12 @@ Artifacts are emitted to `resources/bin/<problem>/` with objective-count-specifi
   ```bash
   python -m hmordd.tsp.run_dd dd=exact split=train from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=15
   ```
+- **Objective-only mode** (`prob.track_x=0`) disables decision-path tracking and stores only objective vectors (`z`) while keeping `x=[]`:
+  ```bash
+  python -m hmordd.tsp.run_dd dd=exact split=test from_pid=0 to_pid=10 prob.track_x=0
+  ```
+- **Data collection mode** requires decision tracking (`prob.track_x=1`, default).
+- Exact/frontier artifact directories are separated by tracking mode via a `trackx-*` suffix.
 - **Restricted DD** – `dd.nosh` supports rule-based scoring (`OrdMeanHigh`, `OrdMaxHigh`, `OrdMinHigh`, `OrdMeanLow`, `OrdMaxLow`, `OrdMinLow`) or `E2E`, which loads a graph transformer checkpoint from `resources/checkpoints/tsp/<size>/<model>_best_model.pt`:
   ```bash
   python -m hmordd.tsp.run_dd dd=restricted dd.width=4804 dd.nosh=OrdMeanHigh split=test from_pid=0 to_pid=50 prob.n_objs=3 prob.n_vars=15

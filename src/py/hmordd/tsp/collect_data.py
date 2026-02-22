@@ -19,6 +19,10 @@ from hmordd.tsp import PROB_NAME, PROB_PREFIX
 class DataCollector(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
+        if int(getattr(cfg.prob, "track_x", 1)) == 0:
+            raise ValueError(
+                "collect_data requires decision tracking; set `prob.track_x=1`."
+            )
         self.root_path = Paths.dataset / PROB_NAME / self.cfg.prob.size
         self.shard_path = self.root_path / self.cfg.split
         self.shard_path.mkdir(parents=True, exist_ok=True)
@@ -31,7 +35,9 @@ class DataCollector(BaseRunner):
             / self.cfg.split
             / "exact"
         )
-        frontier_dir = append_pf_dom_path(frontier_dir, self.cfg, include_dominance=False)
+        frontier_dir = append_pf_dom_path(
+            frontier_dir, self.cfg, include_dominance=False, include_track_x=True
+        )
         npz_path = frontier_dir / f"{pid}.npz"
         if npz_path.exists():
             try:

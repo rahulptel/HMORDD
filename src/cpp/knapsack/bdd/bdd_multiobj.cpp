@@ -20,7 +20,7 @@ inline bool SetPackingStateMinElementSmallestToLargestComp(Node *l, Node *r)
 //
 // Find pareto frontier using top-down approach
 //
-ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization, const int problem_type, int dominance_strategy, MultiObjectiveStats *stats)
+ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization, const int problem_type, int dominance_strategy, MultiObjectiveStats *stats, bool track_x)
 {
 	// cout << "\nComputing Pareto Frontier..." << endl;
 
@@ -31,21 +31,23 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization
 	clock_t time_filter = 0, init;
 
 	// Initialize manager
-	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width());
+	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width(), track_x, true);
 
 	// Create root solution
-	// list<int> x;
-	// ObjType zero_array[NOBJS];
-	// memset(zero_array, 0, sizeof(ObjType) * NOBJS);
-	// Solution root_sol(x, zero_array);
-	// // Set root PF
-	// bdd->get_root()->pareto_frontier = mgmr->request();
-	// bdd->get_root()->pareto_frontier->add(root_sol);
-	vector<int> x;
-	vector<int> obj(NOBJS, 0);
-	Solution rootSol(x, obj);
 	bdd->get_root()->pareto_frontier = mgmr->request();
-	bdd->get_root()->pareto_frontier->add(rootSol);
+	if (track_x)
+	{
+		vector<int> x;
+		vector<int> obj(NOBJS, 0);
+		Solution rootSol(x, obj);
+		bdd->get_root()->pareto_frontier->add(rootSol);
+	}
+	else
+	{
+		ObjType zero_array[NOBJS];
+		memset(zero_array, 0, sizeof(ObjType) * NOBJS);
+		bdd->get_root()->pareto_frontier->add_flat(zero_array);
+	}
 
 	vector<float> avg_sols_per_node;
 	int total_sol_per_layer;
@@ -83,17 +85,16 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization
 																		   0,
 																		   (*prev)->weights[0]);
 				}
-				total_sol_per_layer += (node->pareto_frontier->sols.size());
+				total_sol_per_layer += node->pareto_frontier->get_num_sols();
 			}
 			// cout << l << ": " << total_sol_per_layer << " " << bdd->layers[l].size() << " " << total_sol_per_layer / bdd->layers[l].size() << endl;
 
-			// TODO
-			// if (dominance_strategy > 0)
-			// {
-			// 	init = clock();
-			// 	BDDMultiObj::filter_dominance(bdd, l, problem_type, dominance_strategy, stats);
-			// 	stats->pareto_dominance_time += clock() - init;
-			// }
+			if (dominance_strategy > 0)
+			{
+				init = clock();
+				BDDMultiObj::filter_dominance(bdd, l, problem_type, dominance_strategy, stats);
+				stats->pareto_dominance_time += clock() - init;
+			}
 
 			// Deallocate frontier from previous layer
 			for (vector<Node *>::iterator it = bdd->layers[l - 1].begin(); it != bdd->layers[l - 1].end(); ++it)
@@ -138,16 +139,16 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_topdown(BDD *bdd, bool maximization
 				}
 
 				// TODO
-				total_sol_per_layer += (node->pareto_frontier->sols.size());
+				total_sol_per_layer += node->pareto_frontier->get_num_sols();
 			}
 			// cout << l << ": " << total_sol_per_layer << " " << bdd->layers[l].size() << " " << total_sol_per_layer / bdd->layers[l].size() << endl;
 
-			// if (dominance_strategy > 0)
-			// {
-			// 	init = clock();
-			// 	BDDMultiObj::filter_dominance(bdd, l, problem_type, dominance_strategy, stats);
-			// 	stats->pareto_dominance_time += clock() - init;
-			// }
+			if (dominance_strategy > 0)
+			{
+				init = clock();
+				BDDMultiObj::filter_dominance(bdd, l, problem_type, dominance_strategy, stats);
+				stats->pareto_dominance_time += clock() - init;
+			}
 
 			// Deallocate frontier from previous layer
 			for (vector<Node *>::iterator it = bdd->layers[l - 1].begin(); it != bdd->layers[l - 1].end(); ++it)
@@ -322,7 +323,7 @@ struct CompareNode
 //
 // Find pareto frontier using dynamic layer cutset
 //
-ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool maximization, const int problem_type, const int dominance_strategy, MultiObjectiveStats *stats)
+ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool maximization, const int problem_type, const int dominance_strategy, MultiObjectiveStats *stats, bool track_x)
 {
 	// Initialize stats
 	stats->pareto_dominance_time = 0;
@@ -330,23 +331,30 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 	clock_t time_filter = 0, init;
 
 	// Create pareto frontier manager
-	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width());
+	ParetoFrontierManager *mgmr = new ParetoFrontierManager(bdd->get_width(), track_x, false);
 
 	// Create root and terminal frontiers
-	// ObjType sol[NOBJS];
-	// memset(sol, 0, sizeof(ObjType) * NOBJS);
-
-	vector<int> x_root;
-	vector<int> obj_root(NOBJS, 0);
-	Solution rootSol(x_root, obj_root);
 	bdd->get_root()->pareto_frontier = mgmr->request();
-	bdd->get_root()->pareto_frontier->add(rootSol);
-
-	vector<int> x_term;
-	vector<int> obj_term(NOBJS, 0);
-	Solution termSol(x_term, obj_term);
 	bdd->get_terminal()->pareto_frontier_bu = mgmr->request();
-	bdd->get_terminal()->pareto_frontier_bu->add(termSol);
+	if (track_x)
+	{
+		vector<int> x_root;
+		vector<int> obj_root(NOBJS, 0);
+		Solution rootSol(x_root, obj_root);
+		bdd->get_root()->pareto_frontier->add(rootSol);
+
+		vector<int> x_term;
+		vector<int> obj_term(NOBJS, 0);
+		Solution termSol(x_term, obj_term);
+		bdd->get_terminal()->pareto_frontier_bu->add(termSol);
+	}
+	else
+	{
+		ObjType zero_array[NOBJS];
+		memset(zero_array, 0, sizeof(ObjType) * NOBJS);
+		bdd->get_root()->pareto_frontier->add_flat(zero_array);
+		bdd->get_terminal()->pareto_frontier_bu->add_flat(zero_array);
+	}
 
 	// Current layers
 	int layer_topdown = 0;
@@ -370,16 +378,12 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 			{
 				val_topdown += topdown_layer_value(bdd, bdd->layers[layer_topdown][i]);
 			}
-			// cout << "DOMINANCE: " << dominance_strategy << endl;
-			// if (dominance_strategy > 0)
-			// {
-			// 	init = clock();
-			// 	BDDMultiObj::filter_dominance(bdd, layer_topdown, problem_type, dominance_strategy, stats);
-
-			// 	// Error
-			// 	// Was earlier: stats->pareto_dominance_filtered += clock() - init;
-			// 	stats->pareto_dominance_time += clock() - init;
-			// }
+			if (dominance_strategy > 0)
+			{
+				init = clock();
+				BDDMultiObj::filter_dominance(bdd, layer_topdown, problem_type, dominance_strategy, stats);
+				stats->pareto_dominance_time += clock() - init;
+			}
 		}
 		else
 		{
@@ -422,8 +426,11 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 	}
 	expected_size = 10000;
 
-	ParetoFrontier *paretoFrontier = new ParetoFrontier;
-	// paretoFrontier->sols.reserve(expected_size * NOBJS);
+	ParetoFrontier *paretoFrontier = new ParetoFrontier(track_x, false);
+	if (!track_x)
+	{
+		paretoFrontier->sols_flat.reserve(expected_size * NOBJS);
+	}
 
 	// cout << "\tconvoluting..." << endl;
 	for (int i = 0; i < cutset.size(); ++i)
@@ -443,4 +450,155 @@ ParetoFrontier *BDDMultiObj::pareto_frontier_dynamic_layer_cutset(BDD *bdd, bool
 
 	// return pareto frontier
 	return paretoFrontier;
+}
+
+//
+// Filter layer based on dominance
+//
+void BDDMultiObj::filter_dominance(BDD *bdd,
+								   const int layer,
+								   const int problem_type,
+								   const int dominance_strategy,
+								   MultiObjectiveStats *stats)
+{
+	if (problem_type == 1 && dominance_strategy > 0)
+	{
+		filter_dominance_knapsack(bdd, layer, stats);
+	}
+}
+
+//
+// Filter layer based on dominance / knapsack
+//
+void BDDMultiObj::filter_dominance_knapsack(BDD *bdd, const int layer, MultiObjectiveStats *stats)
+{
+	if (bdd->layers[layer].size() <= 1)
+	{
+		return;
+	}
+
+	vector<intpair> node_order_weight;
+	node_order_weight.reserve(bdd->layers[layer].size());
+	for (int i = 0; i < bdd->layers[layer].size(); ++i)
+	{
+		if (!bdd->layers[layer][i]->pareto_frontier->empty())
+		{
+			node_order_weight.push_back(intpair(i, bdd->layers[layer][i]->min_weight));
+		}
+	}
+
+	std::sort(node_order_weight.begin(), node_order_weight.end(), IntPairLargestToSmallestComp);
+	const int order_size = static_cast<int>(node_order_weight.size());
+	if (order_size <= 1)
+	{
+		return;
+	}
+
+	const bool use_flat = bdd->layers[layer][node_order_weight[0].first]->pareto_frontier->uses_flat();
+
+	for (int i = 0; i < order_size - 1; ++i)
+	{
+		Node *node1 = bdd->layers[layer][node_order_weight[i].first];
+		int num_dominated = 0;
+
+		for (int j = i + 1; j < std::min(order_size, i + 3); ++j)
+		{
+			Node *node2 = bdd->layers[layer][node_order_weight[j].first];
+
+			// Parent-collision false-positive guard inherited from network/common.
+			if (node1->prev[0].size() + node1->prev[1].size() == 1 &&
+				node2->prev[0].size() + node2->prev[1].size() == 1)
+			{
+				if (node1->prev[0].size() > 0 && node2->prev[1].size() > 0 &&
+					node1->prev[0][0] == node2->prev[1][0])
+				{
+					continue;
+				}
+				if (node1->prev[1].size() > 0 && node2->prev[0].size() > 0 &&
+					node1->prev[1][0] == node2->prev[0][0])
+				{
+					continue;
+				}
+			}
+
+			if (use_flat)
+			{
+				vector<ObjType> &sols1 = node1->pareto_frontier->sols_flat;
+				const vector<ObjType> &sols2 = node2->pareto_frontier->sols_flat;
+				for (int s1 = 0; s1 < static_cast<int>(sols1.size()); s1 += NOBJS)
+				{
+					if (sols1[s1] == DOMINATED)
+					{
+						continue;
+					}
+					bool dominated = false;
+					for (int s2 = 0; s2 < static_cast<int>(sols2.size()); s2 += NOBJS)
+					{
+						dominated = true;
+						for (int p = 0; p < NOBJS && dominated; ++p)
+						{
+							dominated = (sols2[s2 + p] >= sols1[s1 + p]);
+						}
+						if (dominated)
+						{
+							sols1[s1] = DOMINATED;
+							++num_dominated;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				for (SolutionList::iterator it1 = node1->pareto_frontier->sols.begin();
+					 it1 != node1->pareto_frontier->sols.end();)
+				{
+					bool dominated = false;
+					for (SolutionList::iterator it2 = node2->pareto_frontier->sols.begin();
+						 it2 != node2->pareto_frontier->sols.end(); ++it2)
+					{
+						dominated = true;
+						for (int p = 0; p < NOBJS && dominated; ++p)
+						{
+							dominated = (it2->obj[p] >= it1->obj[p]);
+						}
+						if (dominated)
+						{
+							break;
+						}
+					}
+
+					if (dominated)
+					{
+						it1 = node1->pareto_frontier->sols.erase(it1);
+						++num_dominated;
+					}
+					else
+					{
+						++it1;
+					}
+				}
+			}
+
+			if (!use_flat && node1->pareto_frontier->empty())
+			{
+				break;
+			}
+		}
+
+		if (num_dominated > 0)
+		{
+			if (use_flat)
+			{
+				node1->pareto_frontier->remove_dominated();
+			}
+			assert(stats != NULL);
+			stats->pareto_dominance_filtered += num_dominated;
+		}
+
+		if (use_flat && node1->pareto_frontier->empty())
+		{
+			continue;
+		}
+	}
 }

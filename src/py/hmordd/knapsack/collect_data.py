@@ -27,13 +27,23 @@ from hmordd.knapsack.utils import (
 class DataCollector(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
+        if int(getattr(cfg.prob, "track_x", 1)) == 0:
+            raise ValueError(
+                "collect_data requires decision tracking; set `prob.track_x=1`."
+            )
         self.dataset_path = get_dataset_path(cfg)
         self.dataset_path.mkdir(parents=True, exist_ok=True)
 
     def _load_frontier(self, pid):
         """Load the saved exact Pareto frontier (expects solutions with decision vectors)."""
         frontier_dir = Paths.sols / self.cfg.prob.name / self.cfg.prob.size / self.cfg.split / "exact"
-        frontier_dir = append_pf_dom_path(frontier_dir, self.cfg, include_dominance=True)
+        frontier_dir = append_pf_dom_path(
+            frontier_dir,
+            self.cfg,
+            include_dominance=True,
+            include_track_x=True,
+            include_order_type=True,
+        )
         npz_path = frontier_dir / f"{pid}.npz"
         if npz_path.exists():
             try:

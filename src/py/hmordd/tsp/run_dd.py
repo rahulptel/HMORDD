@@ -26,7 +26,9 @@ class Runner(BaseRunner):
 
         save_path = base_path / self.cfg.prob.name / self.cfg.prob.size
         save_path = save_path / self.cfg.split / self.cfg.dd.type
-        save_path = append_pf_dom_path(save_path, self.cfg, include_dominance=False)
+        save_path = append_pf_dom_path(
+            save_path, self.cfg, include_dominance=False, include_track_x=True
+        )
         nosh = getattr(self.cfg.dd, "nosh", None)
         if nosh:
             save_path = save_path / nosh
@@ -36,7 +38,9 @@ class Runner(BaseRunner):
     def _load_exact_pf(self, pid):
         exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
         exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-        exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=False)
+        exact_sol_path = append_pf_dom_path(
+            exact_sol_path, self.cfg, include_dominance=False, include_track_x=True
+        )
         exact_sol_path = exact_sol_path / f"{pid}.npz"
         if not exact_sol_path.exists():
             print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")

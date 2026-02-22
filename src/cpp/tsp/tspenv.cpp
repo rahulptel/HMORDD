@@ -36,6 +36,7 @@ TSPEnv::~TSPEnv(){
 void TSPEnv::initialize(){
     mdd = NULL;
     pareto_frontier = NULL;
+    track_x = 1;
 };
 
 void TSPEnv::clean_memory(){
@@ -49,8 +50,9 @@ void TSPEnv::clean_memory(){
     }
 };
 
-void TSPEnv::reset(){
+void TSPEnv::reset(int _track_x){
     clean_memory();
+    track_x = _track_x;
 }
 
 int TSPEnv::set_inst(int n_cities, int n_objs, vector<vector<vector<int>>> objs){
@@ -141,10 +143,10 @@ int TSPEnv::compute_pareto_frontier(){
     // cout << "\nGenerating frontier..." << endl;
     MultiObjectiveStats *statsMultiObj = new MultiObjectiveStats;
     if (method == 1){
-        pareto_frontier = DDParetoAlgorithm::pareto_frontier_topdown(mdd, statsMultiObj);
+        pareto_frontier = DDParetoAlgorithm::pareto_frontier_topdown(mdd, statsMultiObj, track_x > 0);
     }
     else if(method==3){
-        pareto_frontier = DDParetoAlgorithm::pareto_frontier_dynamic_layer_cutset(mdd, statsMultiObj);
+        pareto_frontier = DDParetoAlgorithm::pareto_frontier_dynamic_layer_cutset(mdd, statsMultiObj, track_x > 0);
     }
     assert(pareto_frontier != NULL);
 

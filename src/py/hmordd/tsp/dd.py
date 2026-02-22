@@ -166,7 +166,7 @@ class TSPDDManager(DDManager):
         signal.signal(signal.SIGALRM, handle_timeout)
         
         self.env = get_env(self.cfg.prob.n_objs)
-        self.env.reset()
+        self.env.reset(int(getattr(self.cfg.prob, "track_x", 1)))
 
         dists = inst["dists"]
         if isinstance(dists, np.ndarray):

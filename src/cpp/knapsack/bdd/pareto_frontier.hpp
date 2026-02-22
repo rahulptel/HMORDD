@@ -27,44 +27,63 @@ using namespace std;
 class ParetoFrontier
 {
 public:
-    // (Flat) array of solutions
-    // vector<ObjType> sols;
+    explicit ParetoFrontier(bool track_x = true, bool count_comparisons = true)
+        : track_x(track_x), count_comparisons(count_comparisons) {}
+
+    // Tracked solutions (x,z)
     SolutionList sols;
+    // Flat objective-only solutions (packed blocks of size NOBJS)
+    vector<ObjType> sols_flat;
+    bool track_x;
+    bool count_comparisons;
 
-    // Add element to set
-    // void add(ObjType *elem);
+    bool uses_flat() const
+    {
+        return !track_x;
+    }
+
+    bool empty() const
+    {
+        return uses_flat() ? sols_flat.empty() : sols.empty();
+    }
+
+    // Add element to set (tracked)
     void add(Solution &sol);
-
-    // Merge pareto frontier solutions into existing set
-    // void merge(const ParetoFrontier &frontier);
+    // Add element to set (flat)
+    void add_flat(const ObjType *elem);
 
     // Merge pareto frontier solutions with shift
     size_t merge(ParetoFrontier &frontier, int arc_type, ObjType *shift);
+    size_t merge_flat(const ParetoFrontier &frontier, const ObjType *shift);
 
-    // Merge pareto frontier solutions with shift
+    // Merge pareto frontier solutions with offset (used in coupling)
     void merge(ParetoFrontier &frontier, Solution &offset_sol, bool offset_from_bu);
-
-    // void merge(const ParetoFrontier &frontier, const ObjType *shift, int arc_type);
+    void merge_flat_offset(const ParetoFrontier &frontier, const ObjType *offset_obj);
 
     // Convolute two nodes from this set to this one
     void convolute(ParetoFrontier &fA, ParetoFrontier &fB);
-
-    // Remove pre-set dominated solutions
-    // void remove_dominated()
-    // {
-    //     remove_empty();
-    // }
+    void convolute_flat(const ParetoFrontier &fA, const ParetoFrontier &fB);
 
     // Get number of solutions
     int get_num_sols()
     {
-        return sols.size();
+        return uses_flat() ? static_cast<int>(sols_flat.size() / NOBJS) : static_cast<int>(sols.size());
+    }
+
+    // Remove pre-set dominated solutions (flat mode only)
+    void remove_dominated()
+    {
+        if (uses_flat())
+        {
+            remove_empty_flat();
+        }
     }
 
     // Clear pareto frontier
     void clear()
     {
         sols.clear();
+        sols_flat.clear();
     }
 
     // Print elements in set
@@ -75,6 +94,7 @@ public:
 
     // Obtain sum of points
     ObjType get_sum();
+    ObjType get_sum_flat() const;
 
     map<string, vector<vector<int>>> get_frontier();
 
@@ -86,8 +106,8 @@ private:
     // vector<int> aux;
     // ObjType *aux;
 
-    // Remove empty elements
-    // void remove_empty();
+    // Remove empty elements in flat objective array
+    void remove_empty_flat();
 };
 
 //
@@ -97,8 +117,9 @@ class ParetoFrontierManager
 {
 public:
     // Constructor
-    ParetoFrontierManager() {}
-    ParetoFrontierManager(int size)
+    ParetoFrontierManager() : track_x(true), count_comparisons(true) {}
+    ParetoFrontierManager(int size, bool track_x = true, bool count_comparisons = true)
+        : track_x(track_x), count_comparisons(count_comparisons)
     {
         frontiers.reserve(size);
     }
@@ -117,10 +138,12 @@ public:
     {
         if (frontiers.empty())
         {
-            return new ParetoFrontier;
+            return new ParetoFrontier(track_x, count_comparisons);
         }
         ParetoFrontier *f = frontiers.back();
         f->clear();
+        f->track_x = track_x;
+        f->count_comparisons = count_comparisons;
         frontiers.pop_back();
         return f;
     }
@@ -133,6 +156,8 @@ public:
 
     // Preallocated array set
     vector<ParetoFrontier *> frontiers;
+    bool track_x;
+    bool count_comparisons;
 };
 
 // Modify
@@ -141,6 +166,12 @@ public:
 //
 inline void ParetoFrontier::add(Solution &sol)
 {
+    if (uses_flat())
+    {
+        add_flat(sol.obj.data());
+        return;
+    }
+
     bool dominates;
     bool dominated;
     for (SolutionList::iterator it = sols.begin(); it != sols.end();)
@@ -171,11 +202,55 @@ inline void ParetoFrontier::add(Solution &sol)
     sols.insert(sols.end(), sol);
 }
 
+inline void ParetoFrontier::add_flat(const ObjType *elem)
+{
+    bool must_add = true;
+    bool dominates;
+    bool dominated;
+    for (int i = 0; i < static_cast<int>(sols_flat.size()); i += NOBJS)
+    {
+        dominates = true;
+        dominated = true;
+        for (int o = 0; o < NOBJS && (dominates || dominated); ++o)
+        {
+            dominates &= (elem[o] >= sols_flat[i + o]);
+            dominated &= (elem[o] <= sols_flat[i + o]);
+        }
+        if (dominated)
+        {
+            return;
+        }
+        else if (dominates)
+        {
+            if (must_add)
+            {
+                std::copy(elem, elem + NOBJS, sols_flat.begin() + i);
+                must_add = false;
+            }
+            else
+            {
+                sols_flat[i] = DOMINATED;
+            }
+        }
+    }
+
+    if (must_add)
+    {
+        sols_flat.insert(sols_flat.end(), elem, elem + NOBJS);
+    }
+    remove_empty_flat();
+}
+
 //
 // Merge pareto frontier into existing set considering shift
 //
 inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjType *shift)
 {
+    if (uses_flat())
+    {
+        return merge_flat(frontier, shift);
+    }
+
     bool must_add;
     bool dominates;
     bool dominated;
@@ -206,7 +281,10 @@ inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjT
             {
                 dominates &= (aux[o] >= (*itCurr).obj[o]);
                 dominated &= (aux[o] <= (*itCurr).obj[o]);
-                num_comparisons += 1;
+                if (count_comparisons)
+                {
+                    num_comparisons += 1;
+                }
             }
             if (dominated)
             {
@@ -227,9 +305,13 @@ inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjT
         // if solution has not been added already, append element to the end
         if (must_add)
         {
-            // Create new solution object
-            Solution new_sol((*itParent).x, (*itParent).obj);
-            new_sol.x.push_back(arc_type);
+            vector<int> new_x;
+            if (track_x)
+            {
+                new_x = (*itParent).x;
+                new_x.push_back(arc_type);
+            }
+            Solution new_sol(new_x, (*itParent).obj);
             for (int o = 0; o < NOBJS; ++o)
             {
                 new_sol.obj[o] = aux[o];
@@ -240,6 +322,69 @@ inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjT
     }
     sols.erase(end);
 
+    return num_comparisons;
+}
+
+inline size_t ParetoFrontier::merge_flat(const ParetoFrontier &frontier, const ObjType *shift)
+{
+    size_t num_comparisons = 0;
+    int end = static_cast<int>(sols_flat.size());
+    bool must_add;
+    bool dominates;
+    bool dominated;
+
+    for (int j = 0; j < static_cast<int>(frontier.sols_flat.size()); j += NOBJS)
+    {
+        for (int o = 0; o < NOBJS; ++o)
+        {
+            aux[o] = frontier.sols_flat[j + o] + shift[o];
+        }
+
+        must_add = true;
+        for (int i = 0; i < end; i += NOBJS)
+        {
+            if (sols_flat[i] == DOMINATED)
+            {
+                continue;
+            }
+
+            dominates = true;
+            dominated = true;
+            for (int o = 0; o < NOBJS && (dominates || dominated); ++o)
+            {
+                dominates &= (aux[o] >= sols_flat[i + o]);
+                dominated &= (aux[o] <= sols_flat[i + o]);
+                if (count_comparisons)
+                {
+                    num_comparisons += 1;
+                }
+            }
+            if (dominated)
+            {
+                must_add = false;
+                break;
+            }
+            else if (dominates)
+            {
+                if (must_add)
+                {
+                    std::copy(aux, aux + NOBJS, sols_flat.begin() + i);
+                    must_add = false;
+                }
+                else
+                {
+                    sols_flat[i] = DOMINATED;
+                }
+            }
+        }
+
+        if (must_add)
+        {
+            sols_flat.insert(sols_flat.end(), aux, aux + NOBJS);
+        }
+    }
+
+    remove_empty_flat();
     return num_comparisons;
 }
 
@@ -321,6 +466,12 @@ inline size_t ParetoFrontier::merge(ParetoFrontier &frontier, int arc_type, ObjT
 //
 inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol, bool offset_from_bu)
 {
+    if (uses_flat())
+    {
+        merge_flat_offset(frontier, offset_sol.obj.data());
+        return;
+    }
+
     bool must_add;
     bool dominates;
     bool dominated;
@@ -330,8 +481,8 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
     Solution dummy;
     SolutionList::iterator end = sols.insert(sols.end(), dummy);
 
-    // Reverse X variable order if the offset is from the bottom-up set
-    if (offset_from_bu)
+    // Reverse X variable order if the offset is from the bottom-up set.
+    if (track_x && offset_from_bu)
     {
         reverse(offset_sol.x.begin(), offset_sol.x.end());
     }
@@ -377,7 +528,7 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
         if (must_add)
         {
 
-            if (offset_from_bu)
+            if (track_x && offset_from_bu)
             {
                 Solution new_sol(itParent->x, itParent->obj);
                 new_sol.x.insert(new_sol.x.end(), offset_sol.x.begin(), offset_sol.x.end());
@@ -387,7 +538,7 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
                 }
                 sols.push_back(new_sol);
             }
-            else
+            else if (track_x)
             {
                 Solution new_sol(offset_sol.x, offset_sol.obj);
                 reverse(itParent->x.begin(), itParent->x.end());
@@ -398,9 +549,24 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
                 }
                 sols.push_back(new_sol);
             }
+            else
+            {
+                vector<int> new_x;
+                Solution new_sol(new_x, offset_sol.obj);
+                for (int i = 0; i < NOBJS; ++i)
+                {
+                    new_sol.obj[i] = aux[i];
+                }
+                sols.push_back(new_sol);
+            }
         }
     }
     sols.erase(end);
+}
+
+inline void ParetoFrontier::merge_flat_offset(const ParetoFrontier &frontier, const ObjType *offset_obj)
+{
+    (void)merge_flat(frontier, offset_obj);
 }
 
 //
@@ -481,6 +647,21 @@ inline void ParetoFrontier::merge(ParetoFrontier &frontier, Solution &offset_sol
 //
 inline void ParetoFrontier::print()
 {
+    if (uses_flat())
+    {
+        for (int i = 0; i < static_cast<int>(sols_flat.size()); i += NOBJS)
+        {
+            cout << "(";
+            for (int o = 0; o < NOBJS - 1; ++o)
+            {
+                cout << sols_flat[i + o] << ",";
+            }
+            cout << sols_flat[i + NOBJS - 1] << ")";
+            cout << endl;
+        }
+        return;
+    }
+
     for (SolutionList::iterator it = sols.begin(); it != sols.end(); ++it)
     {
         cout << "(";
@@ -498,6 +679,12 @@ inline void ParetoFrontier::print()
 //
 inline void ParetoFrontier::convolute(ParetoFrontier &fA, ParetoFrontier &fB)
 {
+    if (uses_flat())
+    {
+        convolute_flat(fA, fB);
+        return;
+    }
+
     if (fA.sols.size() < fB.sols.size())
     {
         for (SolutionList::iterator solA = fA.sols.begin(); solA != fA.sols.end(); ++solA)
@@ -516,11 +703,36 @@ inline void ParetoFrontier::convolute(ParetoFrontier &fA, ParetoFrontier &fB)
     }
 }
 
+inline void ParetoFrontier::convolute_flat(const ParetoFrontier &fA, const ParetoFrontier &fB)
+{
+    if (fA.sols_flat.size() < fB.sols_flat.size())
+    {
+        for (int j = 0; j < static_cast<int>(fA.sols_flat.size()); j += NOBJS)
+        {
+            std::copy(fA.sols_flat.begin() + j, fA.sols_flat.begin() + j + NOBJS, auxB);
+            merge_flat_offset(fB, auxB);
+        }
+    }
+    else
+    {
+        for (int j = 0; j < static_cast<int>(fB.sols_flat.size()); j += NOBJS)
+        {
+            std::copy(fB.sols_flat.begin() + j, fB.sols_flat.begin() + j + NOBJS, auxB);
+            merge_flat_offset(fA, auxB);
+        }
+    }
+}
+
 //
 // Obtain sum of points
 //
 inline ObjType ParetoFrontier::get_sum()
 {
+    if (uses_flat())
+    {
+        return get_sum_flat();
+    }
+
     ObjType sum = 0;
     for (SolutionList::iterator it = sols.begin(); it != sols.end(); ++it)
     {
@@ -532,17 +744,88 @@ inline ObjType ParetoFrontier::get_sum()
     return sum;
 }
 
+inline ObjType ParetoFrontier::get_sum_flat() const
+{
+    ObjType sum = 0;
+    for (int i = 0; i < static_cast<int>(sols_flat.size()); ++i)
+    {
+        sum += sols_flat[i];
+    }
+    return sum;
+}
+
+inline void ParetoFrontier::remove_empty_flat()
+{
+    if (sols_flat.empty())
+    {
+        return;
+    }
+
+    int last = static_cast<int>(sols_flat.size()) - NOBJS;
+    while (last >= 0 && sols_flat[last] == DOMINATED)
+    {
+        last -= NOBJS;
+    }
+    if (last < 0)
+    {
+        sols_flat.clear();
+        return;
+    }
+
+    for (int i = 0; i < last; i += NOBJS)
+    {
+        if (sols_flat[i] == DOMINATED)
+        {
+            std::copy(sols_flat.begin() + last, sols_flat.begin() + last + NOBJS, sols_flat.begin() + i);
+            last -= NOBJS;
+            while (last >= 0 && sols_flat[last] == DOMINATED)
+            {
+                last -= NOBJS;
+            }
+            if (last < 0)
+            {
+                break;
+            }
+        }
+    }
+
+    if (last >= 0)
+    {
+        sols_flat.resize(last + NOBJS);
+    }
+    else
+    {
+        sols_flat.clear();
+    }
+}
+
 inline map<string, vector<vector<int>>> ParetoFrontier::get_frontier()
 {
-    // cout << sols.size() << endl;
     vector<vector<int>> x_sols;
     vector<vector<int>> z_sols;
-    x_sols.reserve(sols.size());
-    z_sols.reserve(sols.size());
-    for (SolutionList::iterator it = sols.begin(); it != sols.end(); ++it)
+
+    if (uses_flat())
     {
-        x_sols.push_back((*it).x);
-        z_sols.push_back((*it).obj);
+        z_sols.reserve(get_num_sols());
+        for (int i = 0; i < static_cast<int>(sols_flat.size()); i += NOBJS)
+        {
+            vector<int> z(NOBJS, 0);
+            for (int o = 0; o < NOBJS; ++o)
+            {
+                z[o] = sols_flat[i + o];
+            }
+            z_sols.push_back(std::move(z));
+        }
+    }
+    else
+    {
+        z_sols.reserve(sols.size());
+        x_sols.reserve(sols.size());
+        for (SolutionList::iterator it = sols.begin(); it != sols.end(); ++it)
+        {
+            x_sols.push_back((*it).x);
+            z_sols.push_back((*it).obj);
+        }
     }
 
     map<string, vector<vector<int>>> frontier;

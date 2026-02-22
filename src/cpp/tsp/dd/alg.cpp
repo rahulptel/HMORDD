@@ -1,4 +1,5 @@
 #include "alg.hpp"
+#include <cstring>
 
 //
 // Comparator for node selection in convolution
@@ -94,7 +95,7 @@ void expand_layer_bottomup(MDD *mdd, const int l, ParetoFrontierManager *mgmr)
 //
 // Find pareto frontier using top-down approach for MDDs
 //
-ParetoFrontier *DDParetoAlgorithm::pareto_frontier_topdown(MDD *mdd, MultiObjectiveStats *stats)
+ParetoFrontier *DDParetoAlgorithm::pareto_frontier_topdown(MDD *mdd, MultiObjectiveStats *stats, bool track_x)
 {
     // Initialize stats
     stats->pareto_dominance_time = 0;
@@ -102,17 +103,25 @@ ParetoFrontier *DDParetoAlgorithm::pareto_frontier_topdown(MDD *mdd, MultiObject
     clock_t time_filter = 0, init;
 
     // Initialize manager
-    ParetoFrontierManager *mgmr = new ParetoFrontierManager(mdd->get_width());
+    ParetoFrontierManager *mgmr = new ParetoFrontierManager(mdd->get_width(), track_x);
 
     // Root node
     // ObjType zero_array[NOBJS];
     // memset(zero_array, 0, sizeof(ObjType) * NOBJS);
-    vector<int> x;
-	vector<int> obj(NOBJS, 0);
-	Solution rootSol(x, obj);
-	
     mdd->get_root()->pareto_frontier = mgmr->request();
-    mdd->get_root()->pareto_frontier->add(rootSol);
+    if (track_x)
+    {
+        vector<int> x;
+        vector<int> obj(NOBJS, 0);
+        Solution rootSol(x, obj);
+        mdd->get_root()->pareto_frontier->add(rootSol);
+    }
+    else
+    {
+        ObjType zero_array[NOBJS];
+        memset(zero_array, 0, sizeof(ObjType) * NOBJS);
+        mdd->get_root()->pareto_frontier->add_flat(zero_array);
+    }
 
     // Generate frontiers for each node
     for (int l = 1; l < mdd->num_layers; ++l)
@@ -147,25 +156,35 @@ ParetoFrontier *DDParetoAlgorithm::pareto_frontier_topdown(MDD *mdd, MultiObject
 //
 // Find pareto frontier using dynamic layer cutset
 //
-ParetoFrontier *DDParetoAlgorithm::pareto_frontier_dynamic_layer_cutset(MDD *mdd, MultiObjectiveStats *stats)
+ParetoFrontier *DDParetoAlgorithm::pareto_frontier_dynamic_layer_cutset(MDD *mdd, MultiObjectiveStats *stats, bool track_x)
 {
     // Create pareto frontier manager
-    ParetoFrontierManager *mgmr = new ParetoFrontierManager(mdd->get_width());
+    ParetoFrontierManager *mgmr = new ParetoFrontierManager(mdd->get_width(), track_x);
 
     // Create root and terminal frontiers
     // ObjType sol[NOBJS];
     // memset(sol, 0, sizeof(ObjType) * NOBJS);
-    vector<int> x1;
-	vector<int> obj1(NOBJS, 0);
-	Solution rootSol(x1, obj1);    
     mdd->get_root()->pareto_frontier = mgmr->request();
-    mdd->get_root()->pareto_frontier->add(rootSol);
-
-    vector<int> x2;
-	vector<int> obj2(NOBJS, 0);
-	Solution termSol(x2, obj2);
     mdd->get_terminal()->pareto_frontier_bu = mgmr->request();
-    mdd->get_terminal()->pareto_frontier_bu->add(termSol);
+    if (track_x)
+    {
+        vector<int> x1;
+        vector<int> obj1(NOBJS, 0);
+        Solution rootSol(x1, obj1);
+        mdd->get_root()->pareto_frontier->add(rootSol);
+
+        vector<int> x2;
+        vector<int> obj2(NOBJS, 0);
+        Solution termSol(x2, obj2);
+        mdd->get_terminal()->pareto_frontier_bu->add(termSol);
+    }
+    else
+    {
+        ObjType zero_array[NOBJS];
+        memset(zero_array, 0, sizeof(ObjType) * NOBJS);
+        mdd->get_root()->pareto_frontier->add_flat(zero_array);
+        mdd->get_terminal()->pareto_frontier_bu->add_flat(zero_array);
+    }
 
     // Initialize stats
     stats->pareto_dominance_time = 0;
@@ -224,8 +243,11 @@ ParetoFrontier *DDParetoAlgorithm::pareto_frontier_dynamic_layer_cutset(MDD *mdd
     }
     expected_size = 10000;
 
-    ParetoFrontier *paretoFrontier = new ParetoFrontier;
-    // paretoFrontier->sols.reserve(expected_size * NOBJS);
+    ParetoFrontier *paretoFrontier = new ParetoFrontier(track_x);
+    if (!track_x)
+    {
+        paretoFrontier->sols_flat.reserve(expected_size * NOBJS);
+    }
 
     for (int i = 0; i < cutset.size(); ++i)
     {
