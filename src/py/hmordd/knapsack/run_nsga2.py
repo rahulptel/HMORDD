@@ -146,9 +146,11 @@ class Runner(BaseRunner):
     ):
         stats_data = {
             "pid": [pid],
-            "cardinality": [cardinality_result['cardinality']],
-            "precision": [cardinality_result['precision']],
-            "cardinality_raw": [cardinality_result['cardinality_raw']],
+            "cardinality": [cardinality_result.get("cardinality")],
+            "precision": [cardinality_result.get("precision")],
+            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
+            "igd": [cardinality_result.get("igd")],
+            "igd_raw": [cardinality_result.get("igd_raw")],
             "pop_size": [pop_size_used],
             "n_objectives": [instance_data["n_objs"]],
             "n_variables": [instance_data["n_vars"]],
@@ -225,14 +227,20 @@ class Runner(BaseRunner):
                 approx_pf = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
                 time_taken = time.time() - start_time
                 
-                cardinality_result = {'cardinality': -10, 'cardinality_raw': -10, 'precision': -10}
+                cardinality_result = {
+                    "cardinality": -10,
+                    "cardinality_raw": -10,
+                    "precision": -10,
+                    "igd": None,
+                    "igd_raw": None,
+                }
                 n_approx_pf = 0
                 if approx_pf is not None:                    
                     print(f"Pid: {pid}, Seed: {run_seed}, PF size: {approx_pf.shape}")
                     n_approx_pf = approx_pf.shape[0]
                     
                     if exact_pf is not None:
-                         cardinality_result = self.metric_calculator.compute_cardinality(
+                         cardinality_result = self.metric_calculator.compute(
                              true_pf=exact_pf,
                              approx_pf=approx_pf,
                          )

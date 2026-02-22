@@ -20,6 +20,84 @@ class MetricCalculator:
         self.n_objs = n_objs
 
     @staticmethod
+    def _igd_chunked(
+        ref,
+        approx,
+        chunk_ref=256,
+        chunk_approx=None,
+        max_mem_mb=128,
+    ):
+        if ref.size == 0 or approx.size == 0:
+            return np.nan
+
+        total = 0.0
+        n_ref = ref.shape[0]
+        n_obj = ref.shape[1]
+
+        if chunk_approx is None:
+            bytes_per_entry = 8 * n_obj
+            chunk_approx = max(
+                1, int((max_mem_mb * 1024 * 1024) / (chunk_ref * bytes_per_entry))
+            )
+            chunk_approx = min(chunk_approx, approx.shape[0])
+
+        for i in range(0, n_ref, chunk_ref):
+            ref_block = ref[i : i + chunk_ref]
+            min_d2 = np.full(ref_block.shape[0], np.inf, dtype=np.float64)
+            for j in range(0, approx.shape[0], chunk_approx):
+                approx_block = approx[j : j + chunk_approx]
+                diff = ref_block[:, None, :] - approx_block[None, :, :]
+                d2 = np.sum(diff * diff, axis=2)
+                min_d2 = np.minimum(min_d2, d2.min(axis=1))
+            total += np.sqrt(min_d2).sum()
+
+        return float(total / n_ref)
+
+    @staticmethod
+    def _compute_igd_value(ref_pf, approx_pf):
+        if ref_pf.size == 0 or approx_pf.size == 0:
+            return np.nan
+
+        ref = ref_pf.astype(np.float64, copy=False)
+        approx = approx_pf.astype(np.float64, copy=False)
+
+        # cKDTree is usually the most memory-efficient path.
+        try:
+            from scipy.spatial import cKDTree
+
+            tree = cKDTree(approx)
+            try:
+                dists, _ = tree.query(ref, k=1, workers=-1)
+            except TypeError:
+                dists, _ = tree.query(ref, k=1)
+            return float(np.mean(dists))
+        except Exception:
+            pass
+
+        try:
+            return MetricCalculator._igd_chunked(ref, approx)
+        except Exception:
+            pass
+
+        try:
+            from pymoo.indicators.igd import IGD
+
+            return float(IGD(ref)(approx))
+        except Exception:
+            return np.nan
+
+    @staticmethod
+    def _count_points(frontier):
+        if frontier is None:
+            return -1
+        arr = np.asarray(frontier)
+        if arr.size == 0:
+            return 0
+        if arr.ndim >= 1:
+            return int(arr.shape[0])
+        return -1
+
+    @staticmethod
     def compute_cardinality(true_pf=None, approx_pf=None):
         result = {'cardinality': -1, 'cardinality_raw': -1, 'precision': -1,
                   'n_exact_pf': -1, 'n_approx_pf': -1}
@@ -54,6 +132,67 @@ class MetricCalculator:
         result['cardinality_raw'] = found_ndps.shape[0]
         result['precision'] = found_ndps.shape[0] / approx_pf.shape[0]
         
+        return result
+
+    @staticmethod
+    def compute_igd(true_pf=None, approx_pf=None):
+        result = {
+            "igd": None,
+            "igd_raw": None,
+            "n_exact_pf": -1,
+            "n_approx_pf": -1,
+        }
+
+        result["n_exact_pf"] = MetricCalculator._count_points(true_pf)
+        result["n_approx_pf"] = MetricCalculator._count_points(approx_pf)
+
+        if true_pf is None or approx_pf is None:
+            return result
+
+        true_arr = np.asarray(true_pf)
+        approx_arr = np.asarray(approx_pf)
+
+        if true_arr.size == 0 or approx_arr.size == 0:
+            return result
+        if true_arr.ndim != 2 or approx_arr.ndim != 2:
+            return result
+        if true_arr.shape[1] != approx_arr.shape[1]:
+            return result
+
+        ref = true_arr.astype(np.float64, copy=False)
+        approx = approx_arr.astype(np.float64, copy=False)
+
+        igd_raw = MetricCalculator._compute_igd_value(ref, approx)
+
+        min_ref = np.min(ref, axis=0)
+        max_ref = np.max(ref, axis=0)
+        range_ref = max_ref - min_ref
+        range_ref = np.where(range_ref == 0.0, 1.0, range_ref)
+
+        ref_norm = (ref - min_ref) / range_ref
+        approx_norm = (approx - min_ref) / range_ref
+        igd_norm = MetricCalculator._compute_igd_value(ref_norm, approx_norm)
+
+        result["igd_raw"] = float(igd_raw) if np.isfinite(igd_raw) else None
+        result["igd"] = float(igd_norm) if np.isfinite(igd_norm) else None
+
+        return result
+
+    @staticmethod
+    def compute(true_pf=None, approx_pf=None):
+        cardinality_result = MetricCalculator.compute_cardinality(
+            true_pf=true_pf,
+            approx_pf=approx_pf,
+        )
+        igd_result = MetricCalculator.compute_igd(
+            true_pf=true_pf,
+            approx_pf=approx_pf,
+        )
+
+        result = dict(cardinality_result)
+        for key, value in igd_result.items():
+            if key not in result:
+                result[key] = value
         return result
 
 

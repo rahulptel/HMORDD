@@ -72,6 +72,8 @@ class Runner(BaseRunner):
             "cardinality": [cardinality_result.get("cardinality")],
             "precision": [cardinality_result.get("precision")],
             "cardinality_raw": [cardinality_result.get("cardinality_raw")],
+            "igd": [cardinality_result.get("igd")],
+            "igd_raw": [cardinality_result.get("igd_raw")],
             "n_objectives": [instance_data.get("n_objs") if instance_data else None],
             "n_variables": [instance_data.get("n_vars") if instance_data else None],
             "inst_seed": [self.cfg.seed],            
@@ -179,7 +181,7 @@ class Runner(BaseRunner):
             frontier_size = approx_pf.shape[0] if approx_pf is not None else 0
             exact_pf = self._load_exact_pf(pid)
             exact_pf_size = len(exact_pf) if exact_pf is not None else None
-            cardinality_result = self.metric_calculator.compute_cardinality(
+            cardinality_result = self.metric_calculator.compute(
                 true_pf=exact_pf,
                 approx_pf=approx_pf,
             )

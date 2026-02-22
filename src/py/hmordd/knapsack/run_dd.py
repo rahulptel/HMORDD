@@ -71,7 +71,9 @@ class Runner(BaseRunner):
             "n_approx_pf": [cardinality_result.get("n_approx_pf")],            
             "cardinality": [cardinality_result.get("cardinality")],
             "precision": [cardinality_result.get("precision")],
-            "cardinality_raw": [cardinality_result.get("cardinality_raw")],            
+            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
+            "igd": [cardinality_result.get("igd")],
+            "igd_raw": [cardinality_result.get("igd_raw")],
             "initial_nodes": [getattr(dd_manager.env, "initial_node_count", None)],
             "initial_arcs": [getattr(dd_manager.env, "initial_arcs_count", None)],
             "initial_width": [getattr(dd_manager.env, "initial_width", None)],
@@ -164,7 +166,7 @@ class Runner(BaseRunner):
             if self.cfg.dd.type == "exact" and approx_pf is not None:
                 exact_pf = approx_pf
                 
-            cardinality_result = self.metric_calculator.compute_cardinality(
+            cardinality_result = self.metric_calculator.compute(
                 true_pf=exact_pf,
                 approx_pf=approx_pf,
             )

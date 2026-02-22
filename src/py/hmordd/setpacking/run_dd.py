@@ -68,11 +68,13 @@ class Runner(BaseRunner):
                 
         stats = {
             "pid": [pid],
-            "n_exact_pf": [cardinality_result['n_exact_pf']],
-            "n_approx_pf": [cardinality_result['n_approx_pf']],
-            "cardinality": [cardinality_result['cardinality']],
-            "precision": [cardinality_result['precision']],
-            "cardinality_raw": [cardinality_result['cardinality_raw']],
+            "n_exact_pf": [cardinality_result.get("n_exact_pf")],
+            "n_approx_pf": [cardinality_result.get("n_approx_pf")],
+            "cardinality": [cardinality_result.get("cardinality")],
+            "precision": [cardinality_result.get("precision")],
+            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
+            "igd": [cardinality_result.get("igd")],
+            "igd_raw": [cardinality_result.get("igd_raw")],
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
@@ -157,7 +159,7 @@ class Runner(BaseRunner):
             if self.cfg.dd.type == "exact":
                 exact_pf = approx_pf
                 
-            cardinality_result = self.metric_calculator.compute_cardinality(
+            cardinality_result = self.metric_calculator.compute(
                 true_pf=exact_pf,
                 approx_pf=approx_pf,
             )
