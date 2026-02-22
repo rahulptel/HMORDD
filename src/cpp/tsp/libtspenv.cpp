@@ -8,7 +8,7 @@ PYBIND11_MODULE(libtspenv, m)
 {
     py::class_<TSPEnv>(m, "TSPEnv", py::module_local())
         .def(py::init<>())
-        .def("reset", &TSPEnv::reset)
+        .def("reset", &TSPEnv::reset, py::arg("track_x") = 1)
         .def("set_inst", &TSPEnv::set_inst)
         .def("initialize_dd_constructor", &TSPEnv::initialize_dd_constructor)
         .def("generate_next_layer", &TSPEnv::generate_next_layer)

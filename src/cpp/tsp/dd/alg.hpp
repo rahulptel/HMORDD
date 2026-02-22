@@ -11,8 +11,8 @@ struct DDParetoAlgorithm
 {
 
     // Find pareto frontier from top-down approach - MDD version
-    static ParetoFrontier *pareto_frontier_topdown(MDD *bdd, MultiObjectiveStats *stats);
+    static ParetoFrontier *pareto_frontier_topdown(MDD *bdd, MultiObjectiveStats *stats, bool track_x = true);
 
     // Find pareto frontier using dynamic layer cutset
-    static ParetoFrontier *pareto_frontier_dynamic_layer_cutset(MDD *mdd, MultiObjectiveStats *stats);
+    static ParetoFrontier *pareto_frontier_dynamic_layer_cutset(MDD *mdd, MultiObjectiveStats *stats, bool track_x = true);
 };

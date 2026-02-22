@@ -13,7 +13,8 @@ class TSPEnv
 {
 public:
     bool reused;
-    int method;    
+    int method;
+    int track_x;
 
     // ----------------------------------------------------------------
     // Instance data
@@ -44,7 +45,7 @@ public:
     TSPEnv();
     ~TSPEnv();
 
-    void reset();
+    void reset(int track_x = 1);
 
     int set_inst(int n_cities,
                  int n_objs,

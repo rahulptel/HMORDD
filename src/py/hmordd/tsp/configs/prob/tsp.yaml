@@ -4,3 +4,4 @@ n_vars: 15
 size: ${prob.n_objs}_${prob.n_vars}
 
 pf_enum_method: 3
+track_x: 1
