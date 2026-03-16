@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -t 00:03:00
+#SBATCH -t 03:00:00
 
 # Default CPU-only job
 #SBATCH --cpus-per-task 2
