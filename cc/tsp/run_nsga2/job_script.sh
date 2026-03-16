@@ -28,10 +28,10 @@
 # SBATCH --cpus-per-task 3
 # SBATCH --mem 31G
 
-module load python/3.12
+module load python/3.11
 module load boost
 module load meta-farm
 
-source ~/envs/hmordd/bin/activate
+source ~/envs/test/bin/activate
 
 task.run
