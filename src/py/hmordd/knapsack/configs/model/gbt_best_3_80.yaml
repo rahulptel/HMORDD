@@ -1,0 +1,4 @@
+defaults:
+  - gbt
+
+min_child_weight: 1000

@@ -24,11 +24,11 @@ SRC_PY = PROJECT_ROOT / "src" / "py"
 INSTANCES_ROOT = PROJECT_ROOT / "resources" / "instances" / "knapsack"
 TABLE_PATH = Path(__file__).resolve().parent / "table.dat"
 
-# FE-specific model overrides per problem size
-FE_OVERRIDES: Dict[Tuple[int, int], Dict[str, int]] = {
-    (3, 80): {"model.min_child_weight": 1000},
-    (4, 50): {"model.max_depth": 7, "model.min_child_weight": 10000},
-    (7, 40): {"model.max_depth": 9, "model.min_child_weight": 10000},
+# FE-specific Hydra model configs per problem size
+FE_MODEL_CONFIG: Dict[Tuple[int, int], str] = {
+    (3, 80): "gbt_best_3_80",
+    (4, 50): "gbt_best_4_50",
+    (7, 40): "gbt_best_7_40",
 }
 
 
@@ -59,8 +59,10 @@ def build_command(
         "n_processes=1",
     ]
     if nosh == "FE":
-        overrides = FE_OVERRIDES.get((n_objs, n_vars), {})
-        parts.extend(f"{key}={value}" for key, value in overrides.items())
+        model_cfg = FE_MODEL_CONFIG.get((n_objs, n_vars))
+        if model_cfg is None:
+            raise ValueError(f"Missing FE model config for size {(n_objs, n_vars)}")
+        parts.append(f"model={model_cfg}")
     return " ".join(parts)
 
 

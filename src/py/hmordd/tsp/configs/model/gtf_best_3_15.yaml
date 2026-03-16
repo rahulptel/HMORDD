@@ -1,0 +1,8 @@
+defaults:
+  - gtf
+
+# Best E2E model for size 3_15 (matches resources/checkpoints/tsp/3_15/gtf_best_model.pt)
+n_node_feat: 7
+d_emb: 32
+n_layers: 4
+concat_emb: false

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Dict, Iterable, Tuple
 
 # Configuration for the sweep
 SIZES: Iterable[Tuple[int, int]] = ((3, 15), (4, 15))
@@ -18,19 +18,35 @@ SRC_PY = PROJECT_ROOT / "src" / "py"
 INSTANCES_ROOT = PROJECT_ROOT / "resources" / "instances" / "tsp"
 TABLE_PATH = Path(__file__).resolve().parent / "table.dat"
 
+# E2E-specific Hydra model configs per problem size
+E2E_MODEL_CONFIG: Dict[Tuple[int, int], str] = {
+    (3, 15): "gtf_best_3_15",
+    (4, 15): "gtf_best_4_15",
+}
+
 
 def build_command(n_objs, n_vars, pid_start, pid_end, rule):
     """Create the command line executed by META-Farm for one case."""
     pythonpath = SRC_PY.as_posix()
-    return (
-        f"PYTHONPATH={pythonpath}:$PYTHONPATH "
-        f"python -m hmordd.tsp.run_dd "
-        f"dd=restricted dd.nosh={rule} "
-        f"prob.n_objs={n_objs} prob.n_vars={n_vars} "
-        f"prob.track_x={TRACK_X} "
-        f"split={SPLIT} from_pid={pid_start} to_pid={pid_end} "
-        f"n_processes=1"
-    )
+    parts = [
+        f"PYTHONPATH={pythonpath}:$PYTHONPATH",
+        "python -m hmordd.tsp.run_dd",
+        "dd=restricted",
+        f"dd.nosh={rule}",
+        f"prob.n_objs={n_objs}",
+        f"prob.n_vars={n_vars}",
+        f"prob.track_x={TRACK_X}",
+        f"split={SPLIT}",
+        f"from_pid={pid_start}",
+        f"to_pid={pid_end}",
+        "n_processes=1",
+    ]
+    if rule == "E2E":
+        model_cfg = E2E_MODEL_CONFIG.get((n_objs, n_vars))
+        if model_cfg is None:
+            raise ValueError(f"Missing E2E model config for size {(n_objs, n_vars)}")
+        parts.append(f"model={model_cfg}")
+    return " ".join(parts)
 
 
 def count_instances(n_objs, n_vars):
