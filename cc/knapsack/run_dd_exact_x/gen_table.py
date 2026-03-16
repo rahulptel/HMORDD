@@ -11,20 +11,36 @@ from typing import Iterable, Tuple
 SIZES: Iterable[Tuple[int, int]] = ((3, 80), (4, 50), (7, 40))
 INSTANCES_PER_CASE = 10
 SPLIT = "test"
+TRACK_X = 1
+ORDER_TYPES: Iterable[str] = ("Lex", "MinWt")
+PF_ENUM_METHODS: Iterable[int] = (1, 3)
+DOMINANCE_VALUES: Iterable[int] = (0, 1)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SRC_PY = PROJECT_ROOT / "src" / "py"
 INSTANCES_ROOT = PROJECT_ROOT / "resources" / "instances" / "knapsack"
 TABLE_PATH = Path(__file__).resolve().parent / "table.dat"
 
 
-def build_command(n_objs: int, n_vars: int, pid_start: int, pid_end: int) -> str:
+def build_command(
+    n_objs: int,
+    n_vars: int,
+    pid_start: int,
+    pid_end: int,
+    order_type: str,
+    pf_enum_method: int,
+    dominance: int,
+) -> str:
     """Create the command line executed by META-Farm for one case."""
     pythonpath = SRC_PY.as_posix()
     return (
         f"PYTHONPATH={pythonpath}:$PYTHONPATH "
         f"python -m hmordd.knapsack.run_dd "
         f"dd=exact prob.n_objs={n_objs} prob.n_vars={n_vars} "
+        f"prob.track_x={TRACK_X} "
+        f"prob.order_type={order_type} "
+        f"prob.pf_enum_method={pf_enum_method} "
+        f"prob.dominance={dominance} "
         f"split={SPLIT} "
         f"from_pid={pid_start} to_pid={pid_end} n_processes=1"
     )
@@ -58,12 +74,23 @@ def generate_table_lines() -> list[str]:
     for n_objs, n_vars in SIZES:
         pid_offset, total_instances = pid_offset_and_count(n_objs, n_vars)
         cases = math.ceil(total_instances / INSTANCES_PER_CASE)
-        for case_idx in range(cases):
-            pid_start = pid_offset + case_idx * INSTANCES_PER_CASE
-            pid_end = min(pid_start + INSTANCES_PER_CASE, pid_offset + total_instances)
-            command = build_command(n_objs, n_vars, pid_start, pid_end)
-            lines.append(f"{case_id} {command}")
-            case_id += 1
+        for order_type in ORDER_TYPES:
+            for pf_enum_method in PF_ENUM_METHODS:
+                for dominance in DOMINANCE_VALUES:
+                    for case_idx in range(cases):
+                        pid_start = pid_offset + case_idx * INSTANCES_PER_CASE
+                        pid_end = min(pid_start + INSTANCES_PER_CASE, pid_offset + total_instances)
+                        command = build_command(
+                            n_objs,
+                            n_vars,
+                            pid_start,
+                            pid_end,
+                            order_type,
+                            pf_enum_method,
+                            dominance,
+                        )
+                        lines.append(f"{case_id} {command}")
+                        case_id += 1
     return lines
 
 

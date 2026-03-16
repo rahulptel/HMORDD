@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#SBATCH -A 
 #SBATCH -t 00:03:00
 
 # Default CPU-only job

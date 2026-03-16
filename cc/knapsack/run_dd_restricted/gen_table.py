@@ -16,11 +16,13 @@ SIZES_AND_WIDTHS: Dict[Tuple[int, int], Tuple[int, int]] = {
 NOSH_OPTIONS: Iterable[str] = ("Scal+", "FE")
 INSTANCES_PER_CASE = 10
 SPLIT = "test"
+TRACK_X = 0
+ORDER_TYPES: Iterable[str] = ("Lex", "MinWt")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SRC_PY = PROJECT_ROOT / "src" / "py"
 INSTANCES_ROOT = PROJECT_ROOT / "resources" / "instances" / "knapsack"
-TABLE_PATH = Path(__file__).resolve().parent / "table_dd_restricted.dat"
+TABLE_PATH = Path(__file__).resolve().parent / "table.dat"
 
 # FE-specific model overrides per problem size
 FE_OVERRIDES: Dict[Tuple[int, int], Dict[str, int]] = {
@@ -30,7 +32,15 @@ FE_OVERRIDES: Dict[Tuple[int, int], Dict[str, int]] = {
 }
 
 
-def build_command(n_objs: int, n_vars: int, pid_start: int, pid_end: int, width: int, nosh: str) -> str:
+def build_command(
+    n_objs: int,
+    n_vars: int,
+    pid_start: int,
+    pid_end: int,
+    width: int,
+    nosh: str,
+    order_type: str,
+) -> str:
     """Create the command line executed by META-Farm for one case."""
     pythonpath = SRC_PY.as_posix()
     parts = [
@@ -41,6 +51,8 @@ def build_command(n_objs: int, n_vars: int, pid_start: int, pid_end: int, width:
         f"dd.nosh={nosh}",
         f"prob.n_objs={n_objs}",
         f"prob.n_vars={n_vars}",
+        f"prob.track_x={TRACK_X}",
+        f"prob.order_type={order_type}",
         f"split={SPLIT}",
         f"from_pid={pid_start}",
         f"to_pid={pid_end}",
@@ -80,14 +92,23 @@ def generate_table_lines() -> list[str]:
     for (n_objs, n_vars), widths in SIZES_AND_WIDTHS.items():
         pid_offset, total_instances = pid_offset_and_count(n_objs, n_vars)
         cases = math.ceil(total_instances / INSTANCES_PER_CASE)
-        for width in widths:
-            for nosh in NOSH_OPTIONS:
-                for case_idx in range(cases):
-                    pid_start = pid_offset + case_idx * INSTANCES_PER_CASE
-                    pid_end = min(pid_start + INSTANCES_PER_CASE, pid_offset + total_instances)
-                    command = build_command(n_objs, n_vars, pid_start, pid_end, width, nosh)
-                    lines.append(f"{case_id} {command}")
-                    case_id += 1
+        for order_type in ORDER_TYPES:
+            for width in widths:
+                for nosh in NOSH_OPTIONS:
+                    for case_idx in range(cases):
+                        pid_start = pid_offset + case_idx * INSTANCES_PER_CASE
+                        pid_end = min(pid_start + INSTANCES_PER_CASE, pid_offset + total_instances)
+                        command = build_command(
+                            n_objs,
+                            n_vars,
+                            pid_start,
+                            pid_end,
+                            width,
+                            nosh,
+                            order_type,
+                        )
+                        lines.append(f"{case_id} {command}")
+                        case_id += 1
     return lines
 
 
