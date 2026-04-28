@@ -125,3 +125,18 @@ Artifacts are emitted to `resources/bin/<problem>/` with objective-count-specifi
 
 - **C++:** GCC or Clang with C++17, `pybind11`, and Python development headers (`python3-config --includes/--ldflags`).
 - **Python (3.8+) core packages:** `hydra-core`, `numpy`, `pandas`, `scipy`, `torch`, `xgboost`, `pymoo`, `matplotlib` (for plotting hooks), plus standard library modules used throughout. Create a virtualenv and install these before running the pipelines.
+
+## Reference
+
+If you find this work useful, please consider citing:
+
+```
+@inproceedings{patel2026hmordd,
+  title   = {Heuristic Multiobjective Discrete Optimization using Restricted Decision Diagrams},
+  author  = {Patel, Rahul and Khalil, Elias B. and Bergman, David},
+  booktitle = {Proceedings of the International Conference on the Integration of Constraint Programming, Artificial Intelligence, and Operations Research (CPAIOR)},
+  year    = {2026},
+  note    = {To appear},
+  url     = {https://arxiv.org/abs/2403.02482}
+}
+```
