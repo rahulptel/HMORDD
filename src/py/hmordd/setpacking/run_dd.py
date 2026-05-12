@@ -1,5 +1,6 @@
 import json
 from pprint import pprint
+import signal
 
 import hydra
 import numpy as np
@@ -64,8 +65,19 @@ class Runner(BaseRunner):
         except Exception:
             return -2
 
-    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, cardinality_result):
-                
+    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, cardinality_result, status):
+        # Allow cardinality_result to be None (e.g., when build failed)
+        if cardinality_result is None:
+            cardinality_result = {
+                "n_exact_pf": -1,
+                "n_approx_pf": -1,
+                "cardinality": -1,
+                "precision": -1,
+                "cardinality_raw": -1,
+                "igd": None,
+                "igd_raw": None,
+            }
+
         stats = {
             "pid": [pid],
             "n_exact_pf": [cardinality_result.get("n_exact_pf")],
@@ -78,6 +90,7 @@ class Runner(BaseRunner):
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
+            "status": [status],
         }
         df_stats = pd.DataFrame(stats)
         try:
@@ -115,21 +128,14 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid, dd_manager, cardinality_result):
+    def save(self, pid, dd_manager, cardinality_result, status="SUCCESS"):
         dds_save_path = self._get_save_path("dds")
         sols_save_path = self._get_save_path("sols")
-        dds_path_run = dds_save_path
-        sols_path_run = sols_save_path
-        if self.cfg.dd.type == "restricted":
-            dds_path_run = dds_save_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
-            sols_path_run = sols_save_path / f"{self.cfg.dd.nosh}-{self.cfg.dd.width}"
-            dds_path_run.mkdir(parents=True, exist_ok=True)
-            sols_path_run.mkdir(parents=True, exist_ok=True)
                 
-        self._save_dd_stats(pid, dd_manager, dds_path_run)
-        self._save_frontier(pid, dd_manager, sols_path_run)
-        self._save_frontier_stats(pid, dd_manager, sols_path_run, cardinality_result)
-        self._maybe_save_dd(pid, dd_manager, dds_path_run)
+        self._save_dd_stats(pid, dd_manager, dds_save_path)
+        self._save_frontier(pid, dd_manager, sols_save_path)
+        self._save_frontier_stats(pid, dd_manager, sols_save_path, cardinality_result, status)
+        self._maybe_save_dd(pid, dd_manager, dds_save_path)
 
     def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
@@ -152,19 +158,58 @@ class Runner(BaseRunner):
 
             dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
             dd_manager.reset(inst)
-            dd_manager.build_dd()
+
+            # Enforce build time limit using the same configured time_limit
+            build_timeout = self.cfg.time_limit
+            status = "SUCCESS"
+            try:
+                signal.alarm(build_timeout)
+                dd_manager.build_dd()
+                signal.alarm(0)
+            except MemoryError:
+                # Build failed due to memory
+                status = "BUILD_FAILED:MEMLIMIT"
+                dd_manager.time_build = getattr(dd_manager, "time_build", build_timeout)
+                dd_manager.frontier = None
+                dd_manager.time_frontier = None
+                # Compute cardinality with no approx frontier
+                cardinality_result = self.metric_calculator.compute(true_pf=None, approx_pf=None)
+                print(status)
+                self.save(pid, dd_manager, cardinality_result, status=status)
+                continue
+            except Exception:
+                # Timeout or other error during build
+                status = "BUILD_FAILED:TIMELIMIT"
+                dd_manager.time_build = getattr(dd_manager, "time_build", build_timeout)
+                dd_manager.frontier = None
+                dd_manager.time_frontier = None
+                cardinality_result = self.metric_calculator.compute(true_pf=None, approx_pf=None)
+                print(status)
+                self.save(pid, dd_manager, cardinality_result, status=status)
+                continue
+
+            # Build succeeded; enumerate frontier with configured time_limit
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
 
             approx_pf = dd_manager.frontier
             if self.cfg.dd.type == "exact":
                 exact_pf = approx_pf
-                
+
+            # Determine enumeration status: check dd_manager.frontier and possible error flag
+            if approx_pf is None:
+                fe = getattr(dd_manager, "frontier_error", None)
+                if fe == "MEMLIMIT":
+                    status = "ENUM_FAILED:MEMLIMIT"
+                else:
+                    status = "ENUM_FAILED:TIMELIMIT"
+
             cardinality_result = self.metric_calculator.compute(
                 true_pf=exact_pf,
                 approx_pf=approx_pf,
             )
-            print(cardinality_result)                
-            self.save(pid, dd_manager, cardinality_result)
+            print(cardinality_result)
+            print(status)
+            self.save(pid, dd_manager, cardinality_result, status=status)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):

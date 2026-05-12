@@ -30,16 +30,26 @@ class SetPackingDDManager(DDManager):
         pass
     
     def compute_frontier(self, pf_enum_method, time_limit=1800):
+        # Reset any previous flag
+        self.frontier_error = None
         try:
             signal.alarm(time_limit)
             self.env.compute_pareto_frontier(pf_enum_method)
             self.frontier = self.env.get_frontier()
             self.frontier = np.array(self.frontier).reshape(-1, self.cfg.prob.n_objs)
             self.time_frontier = self.env.get_pareto_time()
-        except:
+        except MemoryError:
+            # Indicate memory limit reached during enumeration
             self.frontier = None
             self.time_frontier = time_limit
-        signal.alarm(0)
+            self.frontier_error = "MEMLIMIT"
+        except Exception:
+            # Timeout or other failure
+            self.frontier = None
+            self.time_frontier = time_limit
+            self.frontier_error = "TIMELIMIT"
+        finally:
+            signal.alarm(0)
 
     def get_decision_diagram(self):
         return self.env.get_dd()
