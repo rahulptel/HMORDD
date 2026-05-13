@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator, append_pf_dom_path
+from hmordd.common.utils import append_pf_dom_path
 from hmordd.knapsack.dd import DDManagerFactory
 from hmordd.knapsack.utils import get_instance_data, get_static_order
 
@@ -14,7 +14,6 @@ from hmordd.knapsack.utils import get_instance_data, get_static_order
 class Runner(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
         self._set_memory_limit()
 
     def _get_save_path(self, save_type):
@@ -36,44 +35,10 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _load_exact_pf(self, pid):
-        exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-        exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-        exact_sol_path = append_pf_dom_path(
-            exact_sol_path,
-            self.cfg,
-            include_dominance=True,
-            include_track_x=True,
-            include_order_type=True,
-        )
-        exact_sol_path = exact_sol_path / f"{pid}.npz"
-        if not exact_sol_path.exists():
-            print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")
-            return None
-        try:
-            return np.load(exact_sol_path)['z']
-        except Exception as exc:
-            print(f"Error loading exact Pareto front for PID {pid}: {exc}")
-            return None
-
-    def _extract_frontier_array(self, frontier):
-        if frontier is None:
-            return None
-        if isinstance(frontier, dict):
-            return frontier.get("z")
-        return frontier
-
-    def _stats_dict(self, pid, dd_manager, cardinality_result):
+    def _stats_dict(self, pid, dd_manager):
         print("Frontier Enum time: ", dd_manager.time_frontier)
         return {
             "pid": [pid],
-            "n_exact_pf": [cardinality_result.get("n_exact_pf")],
-            "n_approx_pf": [cardinality_result.get("n_approx_pf")],            
-            "cardinality": [cardinality_result.get("cardinality")],
-            "precision": [cardinality_result.get("precision")],
-            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
-            "igd": [cardinality_result.get("igd")],
-            "igd_raw": [cardinality_result.get("igd_raw")],
             "initial_nodes": [getattr(dd_manager.env, "initial_node_count", None)],
             "initial_arcs": [getattr(dd_manager.env, "initial_arcs_count", None)],
             "initial_width": [getattr(dd_manager.env, "initial_width", None)],
@@ -90,8 +55,8 @@ class Runner(BaseRunner):
             return None
         return build_time + frontier_time
 
-    def _save_stats(self, pid, dd_manager, dds_path, sols_path, cardinality_result):        
-        stats = pd.DataFrame(self._stats_dict(pid, dd_manager, cardinality_result))
+    def _save_stats(self, pid, dd_manager, dds_path, sols_path):        
+        stats = pd.DataFrame(self._stats_dict(pid, dd_manager))
         try:
             stats.to_csv(dds_path / f"{pid}.csv", index=False)
         except Exception as exc:
@@ -129,7 +94,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid, dd_manager, cardinality_result):
+    def save(self, pid, dd_manager):
         dds_path = self._get_save_path("dds")
         sols_path = self._get_save_path("sols")
         dds_path_run = dds_path
@@ -140,7 +105,7 @@ class Runner(BaseRunner):
             dds_path_run.mkdir(parents=True, exist_ok=True)
             sols_path_run.mkdir(parents=True, exist_ok=True)
             
-        self._save_stats(pid, dd_manager, dds_path_run, sols_path_run, cardinality_result)
+        self._save_stats(pid, dd_manager, dds_path_run, sols_path_run)
         self._save_frontier(pid, dd_manager, sols_path_run)
         self._maybe_save_dd(pid, dd_manager, dds_path_run)
 
@@ -148,10 +113,6 @@ class Runner(BaseRunner):
         size = self.cfg.prob.size
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
-            exact_pf = self._load_exact_pf(pid)
-            if self.cfg.dd.type == "restricted" and exact_pf is None:
-                continue
-
             inst = get_instance_data(size, self.cfg.split, self.cfg.seed, pid)
             static_order = get_static_order(self.cfg.prob.order_type, inst)
 
@@ -162,16 +123,7 @@ class Runner(BaseRunner):
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, 
                                         time_limit=self.cfg.time_limit)
-            approx_pf = self._extract_frontier_array(dd_manager.frontier)
-            if self.cfg.dd.type == "exact" and approx_pf is not None:
-                exact_pf = approx_pf
-                
-            cardinality_result = self.metric_calculator.compute(
-                true_pf=exact_pf,
-                approx_pf=approx_pf,
-            )
-            print(cardinality_result)
-            self.save(pid, dd_manager, cardinality_result)
+            self.save(pid, dd_manager)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):
