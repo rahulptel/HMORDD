@@ -4,46 +4,26 @@ from __future__ import annotations
 
 import argparse
 import math
-import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 from pandas.errors import EmptyDataError
+
 from hmordd import Paths
+from hmordd.setpacking.postprocess import EXPERIMENT_SPECS
 
-
-NSGA2_DIR_RE = re.compile(r"pop(?P<pop>\d+)_time(?P<time>\d+)$")
-
-
-@dataclass(frozen=True)
-class SizeSpec:
-    n_objs: int
-    n_vars: int
-
-    @property
-    def size(self):
-        return f"{self.n_objs}_{self.n_vars}"
-
-
-@dataclass(frozen=True)
-class Nsga2Spec:
-    pop_size: int
-    run_time: int
-
-    @property
-    def dirname(self):
-        return f"pop{self.pop_size}_time{self.run_time}"
+NOSH_LABEL = r"\noshRule{}"
 
 
 def _read_csvs(paths):
     frames = []
     for path in paths:
-        if path.exists():
-            try:
-                frames.append(pd.read_csv(path))
-            except EmptyDataError:
-                pass
+        if not path.exists() or path.stat().st_size == 0:
+            continue
+        try:
+            frames.append(pd.read_csv(path))
+        except EmptyDataError:
+            pass
     if not frames:
         return pd.DataFrame()
     return pd.concat(frames, ignore_index=True)
@@ -84,72 +64,84 @@ def _latex_textgray(value):
     return rf"\textcolor{{gray}}{{{value}}}"
 
 
-def _discover_sizes(split, pf_enum_method, dominance):
-    exact_root = Paths.sols / "setpacking"
-    specs = []
-    for path in sorted(exact_root.glob(f"*/{split}/exact/pf-{pf_enum_method}-dom-{dominance}")):
-        try:
-            n_objs, n_vars = [int(part) for part in path.parts[-4].split("_")]
-        except ValueError:
-            continue
-        specs.append(SizeSpec(n_objs=n_objs, n_vars=n_vars))
-    return tuple(sorted(specs, key=lambda spec: (spec.n_vars, spec.n_objs)))
+def _latex_bold(value, flag):
+    return rf"\textbf{{{value}}}" if flag and value != "--" else value
 
 
-def _exact_dir(spec, split, pf_enum_method, dominance):
+def _exact_dir(spec, args):
     return (
         Paths.sols
         / "setpacking"
         / spec.size
-        / split
+        / args.split
         / "exact"
-        / f"pf-{pf_enum_method}-dom-{dominance}"
+        / f"pf-{args.pf_enum_method}-dom-{args.dominance}"
     )
 
 
-def _metrics_nsga2_dir(spec, split, nsga2):
+def _exact_dd_dir(spec, args):
+    return (
+        Paths.dds
+        / "setpacking"
+        / spec.size
+        / args.split
+        / "exact"
+        / f"pf-{args.pf_enum_method}-dom-{args.dominance}"
+    )
+
+
+def _restricted_dir(spec, args, variant):
+    return (
+        Paths.sols
+        / "setpacking"
+        / spec.size
+        / args.split
+        / "restricted"
+        / f"pf-{args.pf_enum_method}-dom-{args.dominance}"
+        / variant["key"]
+    )
+
+
+def _metrics_restricted_dir(spec, args, variant):
     return (
         Paths.outputs
         / "metrics"
         / "setpacking"
         / spec.size
-        / split
-        / "nsga2"
-        / nsga2.dirname
+        / args.split
+        / "restricted"
+        / f"pf-{args.pf_enum_method}-dom-{args.dominance}"
+        / variant["key"]
     )
 
 
-def _sols_nsga2_dir(spec, split, nsga2):
+def _metrics_nsga2_dir(spec, args, nsga2):
+    return (
+        Paths.outputs
+        / "metrics"
+        / "setpacking"
+        / spec.size
+        / args.split
+        / "nsga2"
+        / nsga2["key"]
+    )
+
+
+def _sols_nsga2_dir(spec, args, nsga2):
     return (
         Paths.sols
         / "setpacking"
         / spec.size
-        / split
+        / args.split
         / "nsga2"
-        / nsga2.dirname
+        / nsga2["key"]
     )
 
 
-def _discover_nsga2_specs(spec, split):
-    nsga2_root = Paths.outputs / "metrics" / "setpacking" / spec.size / split / "nsga2"
-    specs = []
-    for path in sorted(nsga2_root.glob("pop*_time*")):
-        match = NSGA2_DIR_RE.match(path.name)
-        if match is None:
-            continue
-        specs.append(
-            Nsga2Spec(
-                pop_size=int(match.group("pop")),
-                run_time=int(match.group("time")),
-            )
-        )
-    return tuple(sorted(specs, key=lambda item: item.pop_size))
-
-
-def _exact_success_pids(spec, args):
-    exact_dir = _exact_dir(spec, args.split, args.pf_enum_method, int(args.dominance))
+def _exact_available_pids(spec, args):
+    exact_dir = _exact_dir(spec, args)
     pids = []
-    for path in exact_dir.glob("*.csv"):
+    for path in exact_dir.glob("*.npy"):
         if path.stat().st_size == 0:
             continue
         try:
@@ -180,12 +172,14 @@ def _metrics_for_exact_pids(df, pids):
 
 
 def _exact_summary(spec, args, exact_pids):
-    exact_dir = _exact_dir(spec, args.split, args.pf_enum_method, int(args.dominance))
+    exact_dir = _exact_dir(spec, args)
     df = _read_csvs([exact_dir / f"{pid}.csv" for pid in exact_pids])
+    dd_df = _read_csvs([_exact_dd_dir(spec, args) / f"{pid}.csv" for pid in exact_pids])
     return {
         "method": "Exact",
         "pop_size": None,
         "run_time": None,
+        "width": _mean_or_none(dd_df.get("width", pd.Series(dtype=float))),
         "time": _mean_or_none(df.get("total_time", pd.Series(dtype=float))),
         "cardinality": 1.0,
         "precision": 1.0,
@@ -196,16 +190,17 @@ def _exact_summary(spec, args, exact_pids):
 
 
 def _nsga2_summary(spec, args, nsga2, exact_pids):
-    metrics_dir = _metrics_nsga2_dir(spec, args.split, nsga2)
+    metrics_dir = _metrics_nsga2_dir(spec, args, nsga2)
     metrics = _metrics_for_exact_pids(_read_csvs(metrics_dir.glob("*.csv")), exact_pids)
 
-    sols_dir = _sols_nsga2_dir(spec, args.split, nsga2)
+    sols_dir = _sols_nsga2_dir(spec, args, nsga2)
     stats = _filter_pids(_read_csvs(sols_dir.glob("*.csv")), exact_pids)
 
     return {
-        "method": f"NSGA-II-{nsga2.pop_size}",
-        "pop_size": nsga2.pop_size,
-        "run_time": nsga2.run_time,
+        "method": f"NSGA-II-{nsga2['pop_size']}",
+        "pop_size": nsga2["pop_size"],
+        "run_time": nsga2["run_time"],
+        "width": None,
         "time": _mean_or_none(stats.get("time_taken", pd.Series(dtype=float))),
         "cardinality": _mean_or_none(metrics.get("cardinality", pd.Series(dtype=float))),
         "precision": _mean_or_none(metrics.get("precision", pd.Series(dtype=float))),
@@ -215,10 +210,39 @@ def _nsga2_summary(spec, args, nsga2, exact_pids):
     }
 
 
+def _restricted_summary(spec, args, variant, exact_pids):
+    metrics_dir = _metrics_restricted_dir(spec, args, variant)
+    metrics = _metrics_for_exact_pids(
+        _read_csvs([metrics_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids
+    )
+
+    sols_dir = _restricted_dir(spec, args, variant)
+    stats = _filter_pids(_read_csvs([sols_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids)
+
+    return {
+        "method": NOSH_LABEL,
+        "pop_size": None,
+        "run_time": None,
+        "width": variant["width"],
+        "time": _mean_or_none(stats.get("total_time", pd.Series(dtype=float))),
+        "cardinality": _mean_or_none(metrics.get("cardinality", pd.Series(dtype=float))),
+        "precision": _mean_or_none(metrics.get("precision", pd.Series(dtype=float))),
+        "igd": _mean_or_none(metrics.get("igd", pd.Series(dtype=float))),
+        "frontier_size": _mean_or_none(metrics.get("n_approx_pf", pd.Series(dtype=float))),
+        "inst.": len(exact_pids),
+    }
+
+
+def _selected_specs(args):
+    if args.size is None:
+        return EXPERIMENT_SPECS
+    return tuple(spec for spec in EXPERIMENT_SPECS if spec.size == args.size)
+
+
 def build_summary(args):
     rows = []
-    for spec in _discover_sizes(args.split, args.pf_enum_method, int(args.dominance)):
-        exact_pids = _exact_success_pids(spec, args)
+    for spec in _selected_specs(args):
+        exact_pids = _exact_available_pids(spec, args)
         rows.append(
             {
                 "n_vars": spec.n_vars,
@@ -226,7 +250,7 @@ def build_summary(args):
                 **_exact_summary(spec, args, exact_pids),
             }
         )
-        for nsga2 in _discover_nsga2_specs(spec, args.split):
+        for nsga2 in spec.nsga2_variants:
             rows.append(
                 {
                     "n_vars": spec.n_vars,
@@ -234,68 +258,177 @@ def build_summary(args):
                     **_nsga2_summary(spec, args, nsga2, exact_pids),
                 }
             )
+        for variant in spec.restricted_variants:
+            rows.append(
+                {
+                    "n_vars": spec.n_vars,
+                    "n_objs": spec.n_objs,
+                    **_restricted_summary(spec, args, variant, exact_pids),
+                }
+            )
     return pd.DataFrame(rows)
 
 
-def render_latex(summary):
+def _table_columns(summary):
+    specs = summary[["n_vars", "n_objs"]].drop_duplicates()
+    return [(int(row.n_vars), int(row.n_objs)) for row in specs.itertuples(index=False)]
+
+
+def _summary_lookup(summary):
+    lookup = {}
+    for row in summary.to_dict("records"):
+        lookup[(int(row["n_vars"]), int(row["n_objs"]), row["method"])] = row
+    return lookup
+
+
+def _methods_for_table(summary, requested_methods):
+    methods = []
+    for method in summary["method"]:
+        if method not in methods:
+            methods.append(method)
+    return [method for method in requested_methods if method in methods]
+
+
+def _metric_value(row, metric):
+    if row is None:
+        return None
+    return row.get(metric)
+
+
+def _format_metric(value, metric):
+    if metric in {"width", "frontier_size", "inst."}:
+        return _fmt_int(value)
+    if metric == "time":
+        return _fmt_time(value)
+    if metric in {"cardinality", "precision"}:
+        return _fmt_percent(value)
+    if metric == "igd":
+        return _fmt_igd(value)
+    raise ValueError(f"Unknown metric '{metric}'")
+
+
+def _best_by_column(lookup, columns, methods, metric):
+    if metric not in {"cardinality", "precision", "igd"}:
+        return {}
+
+    reverse = metric in {"cardinality", "precision"}
+    best = {}
+    for n_vars, n_objs in columns:
+        values = []
+        for method in methods:
+            if method == "Exact":
+                continue
+            value = _metric_value(lookup.get((n_vars, n_objs, method)), metric)
+            if value is not None and not pd.isna(value):
+                values.append(float(value))
+        if values:
+            best[(n_vars, n_objs)] = max(values) if reverse else min(values)
+    return best
+
+
+def _format_row_values(lookup, columns, method, metric, best):
+    values = []
+    for n_vars, n_objs in columns:
+        row = lookup.get((n_vars, n_objs, method))
+        value = _metric_value(row, metric)
+        rendered = _format_metric(value, metric)
+        if method == "Exact":
+            rendered = _latex_textgray(rendered)
+        else:
+            best_value = best.get((n_vars, n_objs))
+            is_best = (
+                best_value is not None
+                and value is not None
+                and not pd.isna(value)
+                and abs(float(value) - best_value) <= 1e-12
+            )
+            rendered = _latex_bold(rendered, is_best)
+        values.append(rendered)
+    return values
+
+
+def render_latex(summary, requested_methods, label_suffix):
+    columns = _table_columns(summary)
+    lookup = _summary_lookup(summary)
+    methods = _methods_for_table(summary, requested_methods)
+    n_groups = []
+    for n_vars, n_objs in columns:
+        if not n_groups or n_groups[-1][0] != n_vars:
+            n_groups.append([n_vars, []])
+        n_groups[-1][1].append(n_objs)
+
+    col_spec = "ll" + ("r" * len(columns))
+    group_headers = ["& &"]
+    cmidrules = []
+    next_col = 3
+    for n_vars, n_objs_values in n_groups:
+        group_headers.append(rf"\multicolumn{{{len(n_objs_values)}}}{{c}}{{${'N'} = {n_vars}$}}")
+        start_col = next_col
+        end_col = next_col + len(n_objs_values) - 1
+        cmidrules.append(rf"\cmidrule(lr){{{start_col}-{end_col}}}")
+        next_col = end_col + 1
+    header_values = [rf"$K={n_objs}$" for _, n_objs in columns]
+
     lines = [
         r"\begin{table}[htbp!]",
-        r"    \caption{MOSP results averaged across exact-success test instances.}",
-        r"    \centering",
-        r"    \footnotesize",
-        r"    \resizebox{\linewidth}{!}{",
-        r"    \begin{tabular}{rrlrrrrrrr}",
-        r"    \toprule",
-        r"    $N$ & $K$ & ~~Method & ~~Pop. & ~~Time $\downarrow$ & ~~Cardinality $\uparrow$ & ~~Precision $\uparrow$ & ~~IGD $\downarrow$ & ~~$|\hat{\mathcal{Z}}^\star|$ & ~~Inst. \\",
-        r"    \midrule",
+        r"    \caption{\gls*{mospp} results averaged over test instances.",
+        r"    Each column corresponds to a specific instance size $(N,K)$.",
     ]
+    if any(method.startswith("NSGA-II-") for method in methods):
+        lines.append(r"    NSGA-II-$p$ denotes NSGA-II with population size $p$.")
+    lines.extend(
+        [
+            r"    Refer to \Cref{sec:setup} for column description.}",
+            r"    \centering",
+            r"    \footnotesize",
+            r"    \resizebox{\linewidth}{!}{",
+            rf"    \begin{{tabular}}{{{col_spec}}}",
+            r"\toprule",
+            " ".join(group_headers) + r"\\",
+            "".join(cmidrules),
+            "Metric & Method & " + " & ".join(header_values) + r" \\",
+            r"\midrule",
+        ]
+    )
 
-    groups = list(summary.groupby(["n_vars", "n_objs"], sort=False))
-    for size_idx, ((n_vars, n_objs), group) in enumerate(groups):
-        rows = group.to_dict("records")
-        row_count = len(rows)
-        for idx, row in enumerate(rows):
-            prefix = "        & & "
-            if idx == 0:
-                prefix = rf"    \multirow{{{row_count}}}{{*}}{{{n_vars}}} & \multirow{{{row_count}}}{{*}}{{{n_objs}}} & "
+    metric_blocks = [
+        ("width", "Width"),
+        ("time", r"Time $\downarrow$"),
+        ("cardinality", r"Cardinality $\uparrow$"),
+        ("precision", r"Precision $\uparrow$"),
+        ("igd", r"IGD $\downarrow$"),
+        ("frontier_size", r"$|\hat{\mathcal{Z}}^\star|$"),
+    ]
+    for metric_idx, (metric, label) in enumerate(metric_blocks):
+        best = _best_by_column(lookup, columns, methods, metric)
+        lines.append("")
+        for method_idx, method in enumerate(methods):
+            metric_label = rf"\multirow{{{len(methods)}}}{{*}}{{{label}}} " if method_idx == 0 else ""
+            method_label = _latex_textgray("Exact") if method == "Exact" else method
+            values = _format_row_values(lookup, columns, method, metric, best)
+            lines.append(rf"{metric_label}  & {method_label} & " + " & ".join(values) + r" \\")
+        if metric_idx != len(metric_blocks) - 1:
+            lines.append(r"\midrule")
 
-            method = row["method"]
-            pop_size = _fmt_int(row["pop_size"])
-            time = _fmt_time(row["time"])
-            cardinality = _fmt_percent(row["cardinality"])
-            precision = _fmt_percent(row["precision"])
-            igd = _fmt_igd(row["igd"])
-            frontier_size = _fmt_int(row["frontier_size"])
-            inst = _fmt_int(row["inst."])
-
-            if method == "Exact":
-                method = _latex_textgray(method)
-                pop_size = _latex_textgray("--")
-                time = _latex_textgray(time)
-                cardinality = _latex_textgray(cardinality)
-                precision = _latex_textgray(precision)
-                igd = _latex_textgray(igd)
-                frontier_size = _latex_textgray(frontier_size)
-                inst = _latex_textgray(inst)
-
-            lines.append(
-                rf"{prefix}{method} & {pop_size} & {time} & {cardinality} & {precision} & {igd} & {frontier_size} & {inst} \\"
-            )
-            if idx == 0 and row_count > 1:
-                lines.append(r"    \cmidrule{3-10}")
-
-        if size_idx != len(groups) - 1:
-            lines.extend(["", r"    \midrule", ""])
+    inst_values = []
+    for n_vars, n_objs in columns:
+        exact_row = lookup.get((n_vars, n_objs, "Exact"))
+        inst_values.append(_fmt_int(_metric_value(exact_row, "inst.")))
+    lines.extend(["", "Inst. &  & " + " & ".join(inst_values) + r" \\  "])
 
     lines.extend(
         [
-            r"    \bottomrule",
+            r"\bottomrule",
             r"    \end{tabular}}",
-            r"    \label{tab:sp_result_complete}",
+            rf"    \label{{tab:mis_result_complete_{label_suffix}}}",
             r"\end{table}",
         ]
     )
     return "\n".join(lines)
+
+
+def _with_suffix(path, suffix):
+    return path.with_name(f"{path.stem}_{suffix}{path.suffix}")
 
 
 def parse_args():
@@ -307,6 +440,7 @@ def parse_args():
     parser.add_argument("--to-pid", type=int, default=100)
     parser.add_argument("--pf-enum-method", type=int, default=3)
     parser.add_argument("--dominance", type=int, default=0)
+    parser.add_argument("--size", choices=[spec.size for spec in EXPERIMENT_SPECS])
     parser.add_argument(
         "--output",
         type=Path,
@@ -325,15 +459,29 @@ def parse_args():
 def main():
     args = parse_args()
     summary = build_summary(args)
-    latex = render_latex(summary)
+    short_output = _with_suffix(args.output, "short")
+    long_output = _with_suffix(args.output, "long")
+
+    short_latex = render_latex(
+        summary,
+        requested_methods=("Exact", NOSH_LABEL),
+        label_suffix="short",
+    )
+    long_latex = render_latex(
+        summary,
+        requested_methods=("Exact", NOSH_LABEL, "NSGA-II-100", "NSGA-II-500"),
+        label_suffix="long",
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(latex)
+    short_output.write_text(short_latex)
+    long_output.write_text(long_latex)
 
     args.summary_csv.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary_csv, index=False)
 
-    print(f"Wrote {args.output}")
+    print(f"Wrote {short_output}")
+    print(f"Wrote {long_output}")
     print(f"Wrote {args.summary_csv}")
 
 
