@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator, append_pf_dom_path
+from hmordd.common.utils import append_pf_dom_path
 from hmordd.tsp.dd import DDManagerFactory
 from hmordd.tsp.utils import get_instance_data
 
@@ -13,7 +13,6 @@ from hmordd.tsp.utils import get_instance_data
 class Runner(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
         self._set_memory_limit()
 
     def _get_save_path(self, save_type):
@@ -35,45 +34,14 @@ class Runner(BaseRunner):
         save_path.mkdir(parents=True, exist_ok=True)
         return save_path
 
-    def _load_exact_pf(self, pid):
-        exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-        exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-        exact_sol_path = append_pf_dom_path(
-            exact_sol_path, self.cfg, include_dominance=False, include_track_x=True
-        )
-        exact_sol_path = exact_sol_path / f"{pid}.npz"
-        if not exact_sol_path.exists():
-            print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")
-            return None
-        try:
-            return np.load(exact_sol_path)["z"]
-        except Exception as exc:
-            print(f"Error loading exact Pareto front for PID {pid}: {exc}")
-            return None
-
-    def _extract_frontier_array(self, frontier):
-        if frontier is None:
-            return None
-        if isinstance(frontier, dict):
-            return frontier.get("z")
-        return frontier
-
     def _stats_dict(
         self,
         pid,
         dd_manager,
-        cardinality_result,
         instance_data,
     ):
         return {
             "pid": [pid],
-            "n_exact_pf": [cardinality_result.get("n_exact_pf")],
-            "n_approx_pf": [cardinality_result.get("n_approx_pf")],
-            "cardinality": [cardinality_result.get("cardinality")],
-            "precision": [cardinality_result.get("precision")],
-            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
-            "igd": [cardinality_result.get("igd")],
-            "igd_raw": [cardinality_result.get("igd_raw")],
             "n_objectives": [instance_data.get("n_objs") if instance_data else None],
             "n_variables": [instance_data.get("n_vars") if instance_data else None],
             "inst_seed": [self.cfg.seed],            
@@ -87,27 +55,18 @@ class Runner(BaseRunner):
             return None
         return build_time + frontier_time
 
-    def _frontier_size(self, frontier):
-        if frontier is None:
-            return None
-        if isinstance(frontier, dict) and "z" in frontier:
-            return len(frontier["z"])
-        return len(frontier)
-
     def _save_stats(
         self,
         pid,
         dd_manager,
         dds_path,
         sols_path,
-        cardinality_result,
         instance_data,
     ):
         stats = pd.DataFrame(
             self._stats_dict(
                 pid,
                 dd_manager,
-                cardinality_result,
                 instance_data,
             )
         )
@@ -152,7 +111,6 @@ class Runner(BaseRunner):
         self,
         pid,
         dd_manager,
-        cardinality_result,
         instance_data,
     ):
         dds_path = self._get_save_path("dds")
@@ -162,7 +120,6 @@ class Runner(BaseRunner):
             dd_manager,
             dds_path,
             sols_path,
-            cardinality_result,
             instance_data,
         )
         self._save_frontier(pid, dd_manager, sols_path)
@@ -177,19 +134,9 @@ class Runner(BaseRunner):
             dd_manager.reset(inst)
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
-            approx_pf = self._extract_frontier_array(dd_manager.frontier)
-            frontier_size = approx_pf.shape[0] if approx_pf is not None else 0
-            exact_pf = self._load_exact_pf(pid)
-            exact_pf_size = len(exact_pf) if exact_pf is not None else None
-            cardinality_result = self.metric_calculator.compute(
-                true_pf=exact_pf,
-                approx_pf=approx_pf,
-            )
-            print(cardinality_result)
             self.save(
                 pid,
                 dd_manager,
-                cardinality_result,
                 inst,
             )
 
