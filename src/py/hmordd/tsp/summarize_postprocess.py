@@ -133,10 +133,10 @@ def _sols_nsga2_dir(spec, args, nsga2):
     )
 
 
-def _exact_success_pids(spec, args):
+def _exact_available_pids(spec, args):
     exact_dir = _exact_dir(spec, args)
     pids = []
-    for path in exact_dir.glob("*.csv"):
+    for path in exact_dir.glob("*.npz"):
         if path.stat().st_size == 0:
             continue
         try:
@@ -240,7 +240,7 @@ def _selected_specs(args):
 def build_summary(args):
     rows = []
     for spec in _selected_specs(args):
-        exact_pids = _exact_success_pids(spec, args)
+        exact_pids = _exact_available_pids(spec, args)
         rows.append(
             {
                 "n_vars": spec.n_vars,
