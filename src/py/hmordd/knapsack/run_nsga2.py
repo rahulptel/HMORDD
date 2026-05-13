@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator, append_pf_dom_path
+from hmordd.common.frontiers import dd_frontier_candidates, load_first_existing_frontier
+from hmordd.common.utils import MetricCalculator
 from hmordd.knapsack.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -201,24 +202,14 @@ class Runner(BaseRunner):
                 else self.cfg.nsga2.run_time
             )
             
-            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-            exact_sol_path = append_pf_dom_path(
-                exact_sol_path,
-                self.cfg,
-                include_dominance=True,
-                include_track_x=True,
-                include_order_type=True,
+            exact_pf, exact_sol_path = load_first_existing_frontier(
+                dd_frontier_candidates(self.cfg, pid, dd_type="exact")
             )
-            exact_sol_path = exact_sol_path / f"{pid}.npy"
-            exact_pf = None
-            if exact_sol_path.exists():
-                try:
-                    exact_pf = np.load(exact_sol_path)
-                except Exception as e:
-                    print(f"Error loading exact Pareto front for PID {pid}: {e}")
-            else:
-                print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")                
+            if exact_pf is None:
+                print(
+                    "Exact Pareto front not found for PID "
+                    f"{pid}; checked {dd_frontier_candidates(self.cfg, pid, dd_type='exact')}"
+                )
             
             sols_save_path_run = sols_save_path / f"pop{pop_size}_time{run_time}"
             sols_save_path_run.mkdir(parents=True, exist_ok=True)
