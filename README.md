@@ -34,7 +34,7 @@ HMORDD/
 |   |-- dataset/<problem>/           # Collected DD node datasets for training
 |   |-- checkpoints/tsp/             # TSP training checkpoints
 |   `-- metrics/<problem>/           # Post-processed metric CSVs
-|-- results/                         # Summary CSV/LaTeX tables from summarize_postprocess
+|-- results/                         # Summary CSV/LaTeX tables from summarize_results
 |-- scripts/                         # Helper scripts such as build_all_cpp.sh
 `-- cc/                              # Cluster/run helper material
 ```
@@ -95,14 +95,9 @@ cd src/py
   Metrics are stored under `outputs/metrics/setpacking/<size>/<split>/...` using the same method subdirectories as `outputs/sols/`. Exact frontiers are not required to run the restricted DD, but they are needed here for comparison metrics.
 - **Summary tables** – Build the current post-processed MOSP table:
   ```bash
-  python -m hmordd.setpacking.summarize_postprocess --split test --from-pid 0 --to-pid 100 --pf-enum-method 3 --dominance 0
+  python -m hmordd.setpacking.summarize_results --split test --from-pid 0 --to-pid 100 --pf-enum-method 3 --dominance 0
   ```
   Summary artifacts are written to `results/setpacking_summary.csv` and `results/setpacking_summary.tex`.
-- **Legacy DD summary** – Aggregate older DD result CSVs from a chosen output root:
-  ```bash
-  python -m hmordd.setpacking.summarize_results --outputs-root outputs --save-csv setpacking-summary.csv
-  ```
-
 ## Knapsack workflow
 
 - **Generate instances** (uncorrelated items, single-capacity constraint):
@@ -133,7 +128,7 @@ cd src/py
   Metrics are stored under `outputs/metrics/knapsack/<size>/<split>/...`. Exact frontiers are not required to run the restricted DD, but they are needed here for comparison metrics.
 - **Summary tables** – Build the current post-processed MOKP table:
   ```bash
-  python -m hmordd.knapsack.summarize_postprocess --split test --from-pid 1100 --to-pid 1200 --pf-enum-method 3 --dominance 1 --track-x 0
+  python -m hmordd.knapsack.summarize_results --split test --from-pid 1100 --to-pid 1200 --pf-enum-method 3 --dominance 1 --track-x 0
   ```
   Summary artifacts are written to `results/knapsack_summary.csv` and `results/knapsack_summary.tex`.
 
@@ -168,7 +163,7 @@ cd src/py
   Metrics are stored under `outputs/metrics/tsp/<size>/<split>/...`. Exact frontiers are not required to run the restricted DD, but they are needed here for comparison metrics.
 - **Summary tables** – Build the current post-processed MOTSP table:
   ```bash
-  python -m hmordd.tsp.summarize_postprocess --split test --from-pid 1100 --to-pid 1200 --pf-enum-method 3 --track-x 0
+  python -m hmordd.tsp.summarize_results --split test --from-pid 1100 --to-pid 1200 --pf-enum-method 3 --track-x 0
   ```
   Summary artifacts are written to `results/tsp_summary.csv` and `results/tsp_summary.tex`.
 
@@ -176,7 +171,7 @@ cd src/py
 
 - DD statistics and Pareto fronts are written to `outputs/dds/<problem>/...` and `outputs/sols/<problem>/...`. Set `save_dd=true` to also dump DD structures as JSON.
 - Per-problem `postprocess.py` scripts write metric CSVs to `outputs/metrics/<problem>/...`.
-- `summarize_postprocess.py` scripts write final summary CSV/LaTeX tables to `results/`.
+- `summarize_results.py` scripts write final summary CSV/LaTeX tables to `results/`.
 - Restricted DD runs do not check for saved exact frontiers before running. Post-processing computes metrics against saved exact frontiers when available; rows are marked with statuses such as `ok`, `missing_exact`, or `missing_approx`.
 - The bundled `outputs-nibi/outputs/` directory mirrors the same layout for previously collected runs.
 
