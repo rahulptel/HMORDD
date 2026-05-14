@@ -74,17 +74,17 @@ class Runner(BaseRunner):
         elif n_vars == 100 and n_objs == 6:
             pop_size, run_time = 9000, 2
         elif n_vars == 100 and n_objs >= 7:
-            pop_size, run_time = 25000, 13
+            pop_size, run_time = 25000, 11
         elif n_vars == 150 and n_objs <= 3:
             pop_size, run_time = 800, 1
         elif n_vars == 150 and n_objs == 4:
-            pop_size, run_time = 6100, 7
+            pop_size, run_time = 6100, 4
         elif n_vars == 150 and n_objs == 5:
-            pop_size, run_time = 30000, 77
+            pop_size, run_time = 30000, 47
         elif n_vars == 150 and n_objs == 6:
-            pop_size, run_time = 60000, 182            
+            pop_size, run_time = 60000, 221
         elif n_vars == 150 and n_objs >= 7:
-            pop_size, run_time = 10400, 313
+            pop_size, run_time = 10400, 395
         else:
             raise ValueError(f"Unsupported n_vars: {n_vars}, n_objs: {n_objs}")
 

@@ -77,11 +77,11 @@ class Runner(BaseRunner):
         
         pop_size, run_time = None, None
         if n_vars == 40 and n_objs == 7:
-            pop_size, run_time = 25000, 54
+            pop_size, run_time = 25000, 36
         elif n_vars == 50 and n_objs == 4:
-            pop_size, run_time = 3600, 12
+            pop_size, run_time = 3600, 4
         elif n_vars == 80 and n_objs == 3:
-            pop_size, run_time = 2500, 52
+            pop_size, run_time = 2500, 12
         else:
             raise ValueError(f"Unsupported instance size: {n_vars} vars, {n_objs} objs")
 

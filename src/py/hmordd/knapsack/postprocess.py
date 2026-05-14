@@ -18,8 +18,8 @@ EXPERIMENT_SPECS = (
             restricted_variant("FE-3000", nosh="FE", width=3000),
         ),
         nsga2_variants=(
-            nsga2_variant("pop100_time60", pop_size=100, run_time=60),
-            nsga2_variant("pop500_time60", pop_size=500, run_time=60),        
+            nsga2_variant("pop100_time36", pop_size=100, run_time=36),
+            nsga2_variant("pop500_time36", pop_size=500, run_time=36),
         ),
     ),
     ExperimentSpec(
@@ -32,8 +32,8 @@ EXPERIMENT_SPECS = (
             restricted_variant("FE-3500", nosh="FE", width=3500),
         ),
         nsga2_variants=(
-            nsga2_variant("pop100_time12", pop_size=100, run_time=12),
-            nsga2_variant("pop500_time12", pop_size=500, run_time=12),            
+            nsga2_variant("pop100_time4", pop_size=100, run_time=4),
+            nsga2_variant("pop500_time4", pop_size=500, run_time=4),
         ),
     ),
     ExperimentSpec(
@@ -46,8 +46,8 @@ EXPERIMENT_SPECS = (
             restricted_variant("FE-6000", nosh="FE", width=6000),
         ),
         nsga2_variants=(
-            nsga2_variant("pop100_time58", pop_size=100, run_time=58),
-            nsga2_variant("pop500_time58", pop_size=500, run_time=58),            
+            nsga2_variant("pop100_time12", pop_size=100, run_time=12),
+            nsga2_variant("pop500_time12", pop_size=500, run_time=12),
         ),
     ),
 )
