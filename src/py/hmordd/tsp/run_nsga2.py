@@ -72,9 +72,9 @@ class Runner(BaseRunner):
         
         pop_size, run_time = None, None
         if n_vars == 15 and n_objs <= 3:
-            pop_size, run_time = 900, 3
+            pop_size, run_time = 900, 2
         elif n_vars == 15 and n_objs == 4:
-            pop_size, run_time = 9300, 25
+            pop_size, run_time = 9300, 7
         else:
             raise ValueError("Invalid n_vars or n_objs.")
         

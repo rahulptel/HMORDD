@@ -23,8 +23,8 @@ EXPERIMENT_SPECS = (
         n_vars=15,
         restricted_variants=TSP_RESTRICTED_VARIANTS,
         nsga2_variants=(
-            nsga2_variant("pop100_time3", pop_size=100, run_time=3),
-            nsga2_variant("pop500_time3", pop_size=500, run_time=3),
+            nsga2_variant("pop100_time2", pop_size=100, run_time=2),
+            nsga2_variant("pop500_time2", pop_size=500, run_time=2),
         ),
     ),
     ExperimentSpec(
@@ -32,8 +32,8 @@ EXPERIMENT_SPECS = (
         n_vars=15,
         restricted_variants=TSP_RESTRICTED_VARIANTS,
         nsga2_variants=(
-            nsga2_variant("pop100_time25", pop_size=100, run_time=25),
-            nsga2_variant("pop500_time25", pop_size=500, run_time=25),
+            nsga2_variant("pop100_time7", pop_size=100, run_time=7),
+            nsga2_variant("pop500_time7", pop_size=500, run_time=7),
         ),
     ),
 )
