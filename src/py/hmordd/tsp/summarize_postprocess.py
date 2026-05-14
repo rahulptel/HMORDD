@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from pathlib import Path
 
@@ -13,6 +14,19 @@ from hmordd import Paths
 from hmordd.tsp.postprocess import EXPERIMENT_SPECS
 
 TRIAL_SEEDS = (7, 8, 9, 10, 11)
+RESTRICTED_WIDTH = 4804
+TSP_METHOD_ORDER = (
+    "Exact",
+    "NSGA-II-100",
+    "NSGA-II-500",
+    r"\texttt{OrdMeanHigh}",
+    r"\texttt{OrdMeanLow}",
+    r"\texttt{OrdMaxHigh}",
+    r"\texttt{OrdMaxLow}",
+    r"\texttt{OrdMinHigh}",
+    r"\texttt{OrdMinLow}",
+    r"\noshEE{}",
+)
 
 
 def _read_csvs(paths):
@@ -74,6 +88,18 @@ def _latex_textgray(value):
     return rf"\textcolor{{gray}}{{{value}}}"
 
 
+def _latex_bold(value, flag):
+    return rf"\textbf{{{value}}}" if flag and value != "--" else value
+
+
+def _method_label(method):
+    if method == "E2E":
+        return r"\noshEE{}"
+    if method.startswith("Ord"):
+        return rf"\texttt{{{method}}}"
+    return method
+
+
 def _exact_dir(spec, args):
     return (
         Paths.sols
@@ -83,6 +109,10 @@ def _exact_dir(spec, args):
         / "exact"
         / f"pf-{args.pf_enum_method}-trackx-{args.track_x}"
     )
+
+
+def _exact_dd_dir(spec, args):
+    return Paths.dds / "tsp" / spec.size / args.split / "exact"
 
 
 def _restricted_dir(spec, args, variant):
@@ -133,6 +163,27 @@ def _sols_nsga2_dir(spec, args, nsga2):
     )
 
 
+def _dd_width(path):
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    try:
+        with path.open() as handle:
+            layers = json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not layers:
+        return None
+    return max(len(layer) for layer in layers)
+
+
+def _exact_width(spec, args, exact_pids):
+    for pid in exact_pids:
+        width = _dd_width(_exact_dd_dir(spec, args) / f"{pid}.json")
+        if width is not None:
+            return width
+    return None
+
+
 def _exact_available_pids(spec, args):
     exact_dir = _exact_dir(spec, args)
     pids = []
@@ -172,6 +223,7 @@ def _exact_summary(spec, args, exact_pids):
     return {
         "method": "Exact",
         "setting": None,
+        "width": _exact_width(spec, args, exact_pids),
         "time": _mean_or_none(df.get("total_time", pd.Series(dtype=float))),
         "cardinality": 1.0,
         "precision": 1.0,
@@ -201,6 +253,7 @@ def _nsga2_summary(spec, args, nsga2, exact_pids):
     return {
         "method": f"NSGA-II-{nsga2['pop_size']}",
         "setting": nsga2["key"],
+        "width": None,
         "time": _mean_or_none(stats.get("time_taken", pd.Series(dtype=float))),
         "cardinality": _mean_or_none(metrics.get("cardinality", pd.Series(dtype=float))),
         "precision": _mean_or_none(metrics.get("precision", pd.Series(dtype=float))),
@@ -220,8 +273,9 @@ def _restricted_summary(spec, args, variant, exact_pids):
     stats = _filter_pids(_read_csvs([sols_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids)
 
     return {
-        "method": variant["key"],
+        "method": _method_label(variant["key"]),
         "setting": variant["key"],
+        "width": variant.get("width", RESTRICTED_WIDTH),
         "time": _mean_or_none(stats.get("total_time", pd.Series(dtype=float))),
         "cardinality": _mean_or_none(metrics.get("cardinality", pd.Series(dtype=float))),
         "precision": _mean_or_none(metrics.get("precision", pd.Series(dtype=float))),
@@ -267,63 +321,128 @@ def build_summary(args):
     return pd.DataFrame(rows)
 
 
-def render_latex(summary):
-    lines = [
-        r"\begin{table}[htbp!]",
-        r"    \caption{MOTSP results averaged across exact-success test instances.}",
-        r"    \centering",
-        r"    \footnotesize",
-        r"    \resizebox{\linewidth}{!}{",
-        r"    \begin{tabular}{rrlrrrrrr}",
-        r"    \toprule",
-        r"    $N$ & $K$ & ~~Method & ~~Time $\downarrow$ & ~~Cardinality $\uparrow$ & ~~Precision $\uparrow$ & ~~IGD $\downarrow$ & ~~$|\hat{\mathcal{Z}}^\star|$ & ~~Inst. \\",
-        r"    \midrule",
+def _best_flags(rows):
+    restricted = [
+        row
+        for row in rows
+        if row["method"].startswith(r"\texttt{Ord") or row["method"] == r"\noshEE{}"
     ]
 
-    groups = list(summary.groupby(["n_vars", "n_objs"], sort=False))
-    for size_idx, ((n_vars, n_objs), group) in enumerate(groups):
-        rows = group.to_dict("records")
-        row_count = len(rows)
-        for idx, row in enumerate(rows):
-            prefix = "        & & "
-            if idx == 0:
-                prefix = rf"    \multirow{{{row_count}}}{{*}}{{{n_vars}}} & \multirow{{{row_count}}}{{*}}{{{n_objs}}} & "
+    def best_key(metric, reverse):
+        values = [row[metric] for row in restricted if row[metric] is not None and not pd.isna(row[metric])]
+        if not values:
+            return None
+        return max(values) if reverse else min(values)
 
-            method = row["method"]
-            time = _fmt_time(row["time"])
-            cardinality = _fmt_percent(row["cardinality"])
-            precision = _fmt_percent(row["precision"])
-            igd = _fmt_igd(row["igd"])
-            frontier_size = _fmt_int(row["frontier_size"])
-            inst = _fmt_int(row["inst."])
-
-            if method == "Exact":
-                method = _latex_textgray(method)
-                time = _latex_textgray(time)
-                cardinality = _latex_textgray(cardinality)
-                precision = _latex_textgray(precision)
-                igd = _latex_textgray(igd)
-                frontier_size = _latex_textgray(frontier_size)
-                inst = _latex_textgray(inst)
-
-            lines.append(
-                rf"{prefix}{method} & {time} & {cardinality} & {precision} & {igd} & {frontier_size} & {inst} \\"
+    best = {
+        "time": best_key("time", reverse=False),
+        "cardinality": best_key("cardinality", reverse=True),
+        "precision": best_key("precision", reverse=True),
+        "igd": best_key("igd", reverse=False),
+    }
+    flags = []
+    for row in rows:
+        row_flags = {}
+        is_restricted = row in restricted
+        for metric, value in best.items():
+            row_flags[metric] = (
+                value is not None
+                and is_restricted
+                and row[metric] is not None
+                and not pd.isna(row[metric])
+                and abs(row[metric] - value) <= 1e-12
             )
-            if idx == 0 and row_count > 1:
-                lines.append(r"    \cmidrule{3-9}")
+        flags.append(row_flags)
+    return flags
 
-        if size_idx != len(groups) - 1:
+
+def _ordered_rows(group, requested_methods):
+    rows_by_method = {row["method"]: row for row in group.to_dict("records")}
+    return [rows_by_method[method] for method in requested_methods if method in rows_by_method]
+
+
+def render_latex(summary, requested_methods, label_suffix):
+    lines = [
+        r"\begin{table}[htbp!]",
+        r"    \caption{\gls*{motsp} results averaged across test instances.",
+    ]
+    if any(method.startswith(r"\texttt{Ord") for method in requested_methods):
+        lines.append(r"    Methods prefixed with \texttt{Ord} correspond to different rule-based NOSHs.")
+    if any(method.startswith("NSGA-II-") for method in requested_methods):
+        lines.append(r"    NSGA-II-$p$ denotes NSGA-II with population size $p$.")
+    lines.extend([
+        r"    Refer to \Cref{sec:setup} for column description.}",
+        r"    \centering",
+        r"    \footnotesize",
+        r"    \resizebox{0.7\linewidth}{!}{",
+        r"    \begin{tabular}{rrlrrrrrr}",
+        r"    \toprule",
+        r"    $N$ & $K$ & ~~Method & ~~Width & ~~Time $\downarrow$ & ~~Cardinality $\uparrow$& ~~Precision $\uparrow$& ~~IGD $\downarrow$& ~~$|\hat{\mathcal{Z}}^\star|$ \\",
+        r"    \midrule",
+    ])
+
+    n_groups = list(summary.groupby("n_vars", sort=False))
+    for n_idx, (n_vars, n_group) in enumerate(n_groups):
+        k_groups = list(n_group.groupby("n_objs", sort=False))
+        k_rows = [(n_objs, _ordered_rows(group, requested_methods)) for n_objs, group in k_groups]
+        n_row_count = sum(len(rows) for _, rows in k_rows)
+        first_n_row = True
+
+        for k_idx, (n_objs, rows) in enumerate(k_rows):
+            flags = _best_flags(rows)
+            for row_idx, (row, row_flags) in enumerate(zip(rows, flags)):
+                if row_idx == 0:
+                    n_cell = rf"\multirow{{{n_row_count}}}{{*}}{{{n_vars}}}" if first_n_row else ""
+                    prefix = rf"    {n_cell} & \multirow{{{len(rows)}}}{{*}}{{{n_objs}}} & "
+                    first_n_row = False
+                else:
+                    prefix = "      &  & "
+
+                method = row["method"]
+                width = _fmt_int(row["width"])
+                time = _fmt_time(row["time"])
+                cardinality = _fmt_percent(row["cardinality"])
+                precision = _fmt_percent(row["precision"])
+                igd = _fmt_igd(row["igd"])
+                frontier_size = _fmt_int(row["frontier_size"])
+
+                if method == "Exact":
+                    method = _latex_textgray(method)
+                    width = _latex_textgray(width)
+                    time = _latex_textgray(time)
+                    cardinality = _latex_textgray(cardinality)
+                    precision = _latex_textgray(precision)
+                    igd = _latex_textgray(igd)
+                    frontier_size = _latex_textgray(frontier_size)
+                else:
+                    time = _latex_bold(time, row_flags["time"])
+                    cardinality = _latex_bold(cardinality, row_flags["cardinality"])
+                    precision = _latex_bold(precision, row_flags["precision"])
+                    igd = _latex_bold(igd, row_flags["igd"])
+
+                lines.append(
+                    rf"{prefix}{method} & {width} & {time} & {cardinality} & {precision} & {igd} & {frontier_size} \\"
+                )
+
+            if k_idx != len(k_rows) - 1:
+                lines.append(r"    \cmidrule{2-9}")
+
+        if n_idx != len(n_groups) - 1:
             lines.extend(["", r"    \midrule", ""])
 
     lines.extend(
         [
             r"    \bottomrule",
-            r"    \end{tabular}}",
-            r"    \label{tab:tsp_result_complete}",
+            r"    \end{tabular}}  ",
+            rf"    \label{{tab:tsp_result_complete_{label_suffix}}}",
             r"\end{table}",
         ]
     )
     return "\n".join(lines)
+
+
+def _with_suffix(path, suffix):
+    return path.with_name(f"{path.stem}_{suffix}{path.suffix}")
 
 
 def parse_args():
@@ -354,15 +473,29 @@ def parse_args():
 def main():
     args = parse_args()
     summary = build_summary(args)
-    latex = render_latex(summary)
+    short_output = _with_suffix(args.output, "short")
+    long_output = _with_suffix(args.output, "long")
+
+    short_latex = render_latex(
+        summary,
+        requested_methods=("Exact", r"\noshEE{}"),
+        label_suffix="short",
+    )
+    long_latex = render_latex(
+        summary,
+        requested_methods=TSP_METHOD_ORDER,
+        label_suffix="long",
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(latex)
+    short_output.write_text(short_latex)
+    long_output.write_text(long_latex)
 
     args.summary_csv.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary_csv, index=False)
 
-    print(f"Wrote {args.output}")
+    print(f"Wrote {short_output}")
+    print(f"Wrote {long_output}")
     print(f"Wrote {args.summary_csv}")
 
 
