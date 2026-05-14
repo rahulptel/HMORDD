@@ -27,6 +27,30 @@ TSP_METHOD_ORDER = (
     r"\texttt{OrdMinLow}",
     r"\noshEE{}",
 )
+ALL_RESULT_COLUMNS = [
+    "problem",
+    "size",
+    "n_vars",
+    "n_objs",
+    "split",
+    "pid",
+    "method",
+    "setting",
+    "run_seed",
+    "pop_size",
+    "run_time",
+    "width",
+    "time",
+    "cardinality",
+    "precision",
+    "igd",
+    "frontier_size",
+    "status",
+    "n_exact_pf",
+    "n_approx_pf",
+    "cardinality_raw",
+    "igd_raw",
+]
 
 
 def _read_csvs(paths):
@@ -321,6 +345,180 @@ def build_summary(args):
     return pd.DataFrame(rows)
 
 
+def _value(row, column, default=None):
+    value = row.get(column, default)
+    if pd.isna(value):
+        return default
+    return value
+
+
+def _all_result_frame(rows):
+    return pd.DataFrame(rows, columns=ALL_RESULT_COLUMNS)
+
+
+def _all_exact_rows(spec, args, exact_pids):
+    base = pd.DataFrame({"pid": list(exact_pids)})
+    if base.empty:
+        return []
+
+    exact_dir = _exact_dir(spec, args)
+    stats = _filter_pids(_read_csvs([exact_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids)
+    if not stats.empty:
+        base = base.merge(stats, on="pid", how="left")
+    width = _exact_width(spec, args, exact_pids)
+    rows = []
+    for stat in base.to_dict("records"):
+        frontier_size = None
+        for column in ("n_exact_pf", "n_approx_pf"):
+            candidate = _value(stat, column)
+            if candidate is not None and candidate > 0:
+                frontier_size = candidate
+                break
+        rows.append(
+            {
+                "problem": "tsp",
+                "size": spec.size,
+                "n_vars": spec.n_vars,
+                "n_objs": spec.n_objs,
+                "split": args.split,
+                "pid": _value(stat, "pid"),
+                "method": "Exact",
+                "setting": "exact",
+                "width": width,
+                "time": _value(stat, "total_time"),
+                "cardinality": 1.0,
+                "precision": 1.0,
+                "igd": 0.0,
+                "frontier_size": frontier_size,
+                "status": "ok",
+                "n_exact_pf": frontier_size,
+                "n_approx_pf": frontier_size,
+                "cardinality_raw": frontier_size,
+            }
+        )
+    return rows
+
+
+def _all_nsga2_rows(spec, args, nsga2, exact_pids):
+    base = pd.DataFrame(
+        [{"pid": pid, "run_seed": seed} for pid in exact_pids for seed in TRIAL_SEEDS]
+    )
+    if base.empty:
+        return []
+
+    metrics_dir = _metrics_nsga2_dir(spec, args, nsga2)
+    metrics_paths = [
+        metrics_dir / f"{pid}-{seed}.csv"
+        for pid in exact_pids
+        for seed in TRIAL_SEEDS
+    ]
+    metrics = _metrics_for_exact_pids(_read_csvs(metrics_paths), exact_pids)
+
+    sols_dir = _sols_nsga2_dir(spec, args, nsga2)
+    sols_paths = [
+        sols_dir / f"{pid}-{seed}.csv"
+        for pid in exact_pids
+        for seed in TRIAL_SEEDS
+    ]
+    stats = _filter_pids(_read_csvs(sols_paths), exact_pids)
+
+    if not metrics.empty:
+        metrics = metrics.drop(columns=["time"], errors="ignore")
+        base = base.merge(metrics, on=["pid", "run_seed"], how="left")
+    if not stats.empty:
+        stat_cols = [column for column in ("pid", "run_seed", "time_taken") if column in stats.columns]
+        base = base.merge(stats[stat_cols], on=["pid", "run_seed"], how="left")
+
+    rows = []
+    for row in base.to_dict("records"):
+        rows.append(
+            {
+                "problem": "tsp",
+                "size": spec.size,
+                "n_vars": spec.n_vars,
+                "n_objs": spec.n_objs,
+                "split": args.split,
+                "pid": _value(row, "pid"),
+                "method": f"NSGA-II-{nsga2['pop_size']}",
+                "setting": nsga2["key"],
+                "run_seed": _value(row, "run_seed"),
+                "pop_size": nsga2["pop_size"],
+                "run_time": nsga2["run_time"],
+                "time": _value(row, "time_taken"),
+                "cardinality": _value(row, "cardinality"),
+                "precision": _value(row, "precision"),
+                "igd": _value(row, "igd"),
+                "frontier_size": _value(row, "n_approx_pf"),
+                "status": _value(row, "status"),
+                "n_exact_pf": _value(row, "n_exact_pf"),
+                "n_approx_pf": _value(row, "n_approx_pf"),
+                "cardinality_raw": _value(row, "cardinality_raw"),
+                "igd_raw": _value(row, "igd_raw"),
+            }
+        )
+    return rows
+
+
+def _all_restricted_rows(spec, args, variant, exact_pids):
+    base = pd.DataFrame({"pid": list(exact_pids)})
+    if base.empty:
+        return []
+
+    metrics_dir = _metrics_restricted_dir(spec, args, variant)
+    metrics = _metrics_for_exact_pids(
+        _read_csvs([metrics_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids
+    )
+
+    sols_dir = _restricted_dir(spec, args, variant)
+    stats = _filter_pids(_read_csvs([sols_dir / f"{pid}.csv" for pid in exact_pids]), exact_pids)
+
+    if not metrics.empty:
+        metrics = metrics.drop(columns=["time"], errors="ignore")
+        base = base.merge(metrics, on="pid", how="left")
+    if not stats.empty:
+        stat_cols = [column for column in ("pid", "total_time") if column in stats.columns]
+        base = base.merge(stats[stat_cols], on="pid", how="left")
+
+    rows = []
+    for row in base.to_dict("records"):
+        rows.append(
+            {
+                "problem": "tsp",
+                "size": spec.size,
+                "n_vars": spec.n_vars,
+                "n_objs": spec.n_objs,
+                "split": args.split,
+                "pid": _value(row, "pid"),
+                "method": _method_label(variant["key"]),
+                "setting": variant["key"],
+                "width": variant.get("width", RESTRICTED_WIDTH),
+                "time": _value(row, "total_time"),
+                "cardinality": _value(row, "cardinality"),
+                "precision": _value(row, "precision"),
+                "igd": _value(row, "igd"),
+                "frontier_size": _value(row, "n_approx_pf"),
+                "status": _value(row, "status"),
+                "n_exact_pf": _value(row, "n_exact_pf"),
+                "n_approx_pf": _value(row, "n_approx_pf"),
+                "cardinality_raw": _value(row, "cardinality_raw"),
+                "igd_raw": _value(row, "igd_raw"),
+            }
+        )
+    return rows
+
+
+def build_all_results(args):
+    rows = []
+    for spec in _selected_specs(args):
+        exact_pids = _exact_available_pids(spec, args)
+        rows.extend(_all_exact_rows(spec, args, exact_pids))
+        for nsga2 in spec.nsga2_variants:
+            rows.extend(_all_nsga2_rows(spec, args, nsga2, exact_pids))
+        for variant in spec.restricted_variants:
+            rows.extend(_all_restricted_rows(spec, args, variant, exact_pids))
+    return _all_result_frame(rows)
+
+
 def _best_flags(rows):
     restricted = [
         row
@@ -467,12 +665,19 @@ def parse_args():
         default=Paths.results / "tsp_summary.csv",
         help="Path to write the numeric summary CSV.",
     )
+    parser.add_argument(
+        "--all-results-csv",
+        type=Path,
+        default=Paths.results / "tsp_all_results.csv",
+        help="Path to write the per-instance results CSV.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     summary = build_summary(args)
+    all_results = build_all_results(args)
     short_output = _with_suffix(args.output, "short")
     long_output = _with_suffix(args.output, "long")
 
@@ -493,10 +698,13 @@ def main():
 
     args.summary_csv.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary_csv, index=False)
+    args.all_results_csv.parent.mkdir(parents=True, exist_ok=True)
+    all_results.to_csv(args.all_results_csv, index=False)
 
     print(f"Wrote {short_output}")
     print(f"Wrote {long_output}")
     print(f"Wrote {args.summary_csv}")
+    print(f"Wrote {args.all_results_csv}")
 
 
 if __name__ == "__main__":
