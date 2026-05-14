@@ -278,26 +278,58 @@ def _best_flags(rows):
     return flags
 
 
-def render_latex(summary):
+def _is_restricted_method(method):
+    return method in {r"\noshRule{}", r"\noshFE{}"}
+
+
+def _method_block_key(method):
+    if method.startswith("NSGA-II-"):
+        return "NSGA-II"
+    return method
+
+
+def _method_blocks(rows):
+    blocks = []
+    start = 0
+    while start < len(rows):
+        block_key = _method_block_key(rows[start]["method"])
+        end = start + 1
+        if block_key != "Exact":
+            while end < len(rows) and _method_block_key(rows[end]["method"]) == block_key:
+                end += 1
+        blocks.append((start, end))
+        start = end
+    return blocks
+
+
+def render_latex(summary, requested_methods, label_suffix):
     lines = [
         r"\begin{table}[htbp!]",
         r"    \caption{MOKP results averaged across test instances.",
-        r"    NSGA-II-$p$ denotes NSGA-II with population size $p$.",
+    ]
+    if any(method.startswith("NSGA-II-") for method in requested_methods):
+        lines.append(r"    NSGA-II-$p$ denotes NSGA-II with population size $p$.")
+    lines.extend([
         r"    Refer to \Cref{sec:setup} for column description.}",
         r"    \centering",
         r"    \footnotesize",
         r"    \resizebox{0.7\linewidth}{!}{",
         r"    \begin{tabular}{rrlrrrrrrr}",
         r"    \toprule",
-        r"    $N$ & $K$ & ~~Method & ~~Width & ~~Time $\downarrow$ & ~~Cardinality $\uparrow$ & ~~Precision $\uparrow$ & ~~IGD $\downarrow$ & ~~$|\hat{\mathcal{Z}}^\star|$ & ~~Inst. \\",
+        r"    $N$ & $K$ & ~~Method & ~~Width & ~~Time $\downarrow$ & ~~Cardinality $\uparrow$ & ~~Precision $\uparrow$ & ~~IGD $\downarrow$ & ~~$|\hat{\mathcal{Z}}^\star|$ \\",
         r"    \midrule",
-    ]
+    ])
 
     groups = list(summary.groupby(["n_vars", "n_objs"], sort=False))
     for size_idx, (spec, group) in enumerate(groups):
         n_vars, n_objs = spec
-        rows = group.to_dict("records")
+        rows = [
+            row
+            for row in group.to_dict("records")
+            if row["method"] in requested_methods
+        ]
         flags = _best_flags(rows)
+        block_ends = {end - 1 for _, end in _method_blocks(rows)}
         for idx, (row, row_flags) in enumerate(zip(rows, flags)):
             prefix = "        & & "
             if idx == 0:
@@ -310,7 +342,6 @@ def render_latex(summary):
             precision = _fmt_percent(row["precision"])
             igd = _fmt_igd(row["igd"])
             frontier_size = _fmt_int(row["frontier_size"])
-            inst = _fmt_int(row["inst."])
 
             if method == "Exact":
                 method = _latex_textgray("Exact")
@@ -320,23 +351,28 @@ def render_latex(summary):
                 precision = _latex_textgray(precision)
                 igd = _latex_textgray(igd)
                 frontier_size = _latex_textgray(frontier_size)
-                inst = _latex_textgray(inst)
             else:
                 time = _latex_bold(time, row_flags["time"])
                 cardinality = _latex_bold(cardinality, row_flags["cardinality"])
                 precision = _latex_bold(precision, row_flags["precision"])
                 igd = _latex_bold(igd, row_flags["igd"])
 
-            if method in {r"\noshRule{}", r"\noshFE{}"} and idx in {3, 5}:
-                method = rf"\multirow{{2}}{{*}}{{{method}}}"
-            elif method in {r"\noshRule{}", r"\noshFE{}"}:
-                method = ""
+            if _is_restricted_method(method):
+                block_size = next(
+                    end - start
+                    for start, end in _method_blocks(rows)
+                    if start <= idx < end
+                )
+                if idx == next(start for start, end in _method_blocks(rows) if start <= idx < end):
+                    method = rf"\multirow{{{block_size}}}{{*}}{{{method}}}"
+                else:
+                    method = ""
 
             lines.append(
-                rf"{prefix}{method} & {width} & {time} & {cardinality} & {precision} & {igd} & {frontier_size} & {inst} \\"
+                rf"{prefix}{method} & {width} & {time} & {cardinality} & {precision} & {igd} & {frontier_size} \\"
             )
-            if idx in {0, 2, 4}:
-                lines.append(r"    \cmidrule{3-10}")
+            if idx in block_ends and idx != len(rows) - 1:
+                lines.append(r"    \cmidrule{3-9}")
 
         if size_idx != len(groups) - 1:
             lines.extend(["", r"    \midrule", ""])
@@ -345,11 +381,15 @@ def render_latex(summary):
         [
             r"    \bottomrule",
             r"    \end{tabular}}",
-            r"    \label{tab:kp_result_complete}",
+            rf"    \label{{tab:kp_result_complete_{label_suffix}}}",
             r"\end{table}",
         ]
     )
     return "\n".join(lines)
+
+
+def _with_suffix(path, suffix):
+    return path.with_name(f"{path.stem}_{suffix}{path.suffix}")
 
 
 def parse_args():
@@ -382,15 +422,29 @@ def parse_args():
 def main():
     args = parse_args()
     summary = build_summary(args)
-    latex = render_latex(summary)
+    short_output = _with_suffix(args.output, "short")
+    long_output = _with_suffix(args.output, "long")
+
+    short_latex = render_latex(
+        summary,
+        requested_methods=("Exact", r"\noshRule{}", r"\noshFE{}"),
+        label_suffix="short",
+    )
+    long_latex = render_latex(
+        summary,
+        requested_methods=("Exact", "NSGA-II-100", "NSGA-II-500", r"\noshRule{}", r"\noshFE{}"),
+        label_suffix="long",
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(latex)
+    short_output.write_text(short_latex)
+    long_output.write_text(long_latex)
 
     args.summary_csv.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(args.summary_csv, index=False)
 
-    print(f"Wrote {args.output}")
+    print(f"Wrote {short_output}")
+    print(f"Wrote {long_output}")
     print(f"Wrote {args.summary_csv}")
 
 
