@@ -326,7 +326,7 @@ def _best_by_column(lookup, columns, methods, metric):
     return best
 
 
-def _format_row_values(lookup, columns, method, metric, best):
+def _format_row_values(lookup, columns, method, metric, best, *, bold_best=True):
     values = []
     for n_vars, n_objs in columns:
         row = lookup.get((n_vars, n_objs, method))
@@ -342,12 +342,12 @@ def _format_row_values(lookup, columns, method, metric, best):
                 and not pd.isna(value)
                 and abs(float(value) - best_value) <= 1e-12
             )
-            rendered = _latex_bold(rendered, is_best)
+            rendered = _latex_bold(rendered, is_best and bold_best)
         values.append(rendered)
     return values
 
 
-def render_latex(summary, requested_methods, label_suffix):
+def render_latex(summary, requested_methods, label_suffix, *, bold_best=True):
     columns = _table_columns(summary)
     lookup = _summary_lookup(summary)
     methods = _methods_for_table(summary, requested_methods)
@@ -358,7 +358,7 @@ def render_latex(summary, requested_methods, label_suffix):
         n_groups[-1][1].append(n_objs)
 
     col_spec = "ll" + ("r" * len(columns))
-    group_headers = ["& &"]
+    group_headers = ["", ""]
     cmidrules = []
     next_col = 3
     for n_vars, n_objs_values in n_groups:
@@ -384,7 +384,7 @@ def render_latex(summary, requested_methods, label_suffix):
             r"    \resizebox{\linewidth}{!}{",
             rf"    \begin{{tabular}}{{{col_spec}}}",
             r"\toprule",
-            " ".join(group_headers) + r"\\",
+            " & ".join(group_headers) + r"\\",
             "".join(cmidrules),
             "Metric & Method & " + " & ".join(header_values) + r" \\",
             r"\midrule",
@@ -405,7 +405,9 @@ def render_latex(summary, requested_methods, label_suffix):
         for method_idx, method in enumerate(methods):
             metric_label = rf"\multirow{{{len(methods)}}}{{*}}{{{label}}} " if method_idx == 0 else ""
             method_label = _latex_textgray("Exact") if method == "Exact" else method
-            values = _format_row_values(lookup, columns, method, metric, best)
+            values = _format_row_values(
+                lookup, columns, method, metric, best, bold_best=bold_best
+            )
             lines.append(rf"{metric_label}  & {method_label} & " + " & ".join(values) + r" \\")
         if metric_idx != len(metric_blocks) - 1:
             lines.append(r"\midrule")
@@ -466,10 +468,11 @@ def main():
         summary,
         requested_methods=("Exact", NOSH_LABEL),
         label_suffix="short",
+        bold_best=False,
     )
     long_latex = render_latex(
         summary,
-        requested_methods=("Exact", NOSH_LABEL, "NSGA-II-100", "NSGA-II-500"),
+        requested_methods=("Exact", "NSGA-II-100", "NSGA-II-500", NOSH_LABEL),
         label_suffix="long",
     )
 
