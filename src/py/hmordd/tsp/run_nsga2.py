@@ -1,12 +1,10 @@
 import time
-from pprint import pprint
 
 import hydra
 import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator, append_pf_dom_path
 from hmordd.tsp.utils import get_instance_data
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import Problem
@@ -52,10 +50,6 @@ class TSPProblem(Problem):
 
 
 class Runner(BaseRunner):
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
-
     def _get_save_path(self, save_type="sols"):
         if save_type == "sols":
             base_path = Paths.sols
@@ -78,9 +72,9 @@ class Runner(BaseRunner):
         
         pop_size, run_time = None, None
         if n_vars == 15 and n_objs <= 3:
-            pop_size, run_time = 900, 3
+            pop_size, run_time = 900, 2
         elif n_vars == 15 and n_objs == 4:
-            pop_size, run_time = 9300, 25
+            pop_size, run_time = 9300, 7
         else:
             raise ValueError("Invalid n_vars or n_objs.")
         
@@ -126,7 +120,6 @@ class Runner(BaseRunner):
     def _save_stats(
         self,
         pid,
-        cardinality_result,
         time_taken,
         pareto_front_size,
         sols_save_path,
@@ -139,11 +132,6 @@ class Runner(BaseRunner):
     ):
         stats_data = {
             "pid": [pid],
-            "cardinality": [cardinality_result.get("cardinality")],
-            "precision": [cardinality_result.get("precision")],
-            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
-            "igd": [cardinality_result.get("igd")],
-            "igd_raw": [cardinality_result.get("igd_raw")],
             "pop_size": [pop_size_used],
             "n_objectives": [instance_data["n_objs"]],
             "n_variables": [instance_data["n_vars"]],
@@ -194,22 +182,7 @@ class Runner(BaseRunner):
                 if getattr(self.cfg.nsga2, "run_time", None) is None
                 else self.cfg.nsga2.run_time
             )
-            
-            exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-            exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-            exact_sol_path = append_pf_dom_path(
-                exact_sol_path, self.cfg, include_dominance=False, include_track_x=True
-            )
-            exact_sol_path = exact_sol_path / f"{pid}.npz"
-            exact_pf = None
-            if exact_sol_path.exists():
-                try:
-                    exact_pf = -np.load(exact_sol_path)['z']                     
-                except Exception as e:
-                    print(f"Error loading exact Pareto front for PID {pid}: {e}")
-            else:
-                print(f"Exact Pareto front not found for PID {pid} at {exact_sol_path}")                
-            
+
             sols_save_path_run = sols_save_path / f"pop{pop_size}_time{run_time}"
             sols_save_path_run.mkdir(parents=True, exist_ok=True)
             for run_seed in getattr(self.cfg, "trial_seeds", [1, 2, 3, 4, 5]):
@@ -217,24 +190,10 @@ class Runner(BaseRunner):
                 approx_pf = self._run_nsga2(instance_data, pid, pop_size, run_time, run_seed)
                 time_taken = time.time() - start_time
                 
-                cardinality_result = {
-                    "cardinality": -10,
-                    "cardinality_raw": -10,
-                    "precision": -10,
-                    "igd": None,
-                    "igd_raw": None,
-                }
                 n_approx_pf = 0
                 if approx_pf is not None:                    
                     print(f"Pid: {pid}, Seed: {run_seed}, PF size: {approx_pf.shape}")
                     n_approx_pf = approx_pf.shape[0]
-                    
-                    if exact_pf is not None:                         
-                        cardinality_result = self.metric_calculator.compute(
-                            true_pf=exact_pf,
-                            approx_pf=approx_pf,
-                        )
-                    pprint(cardinality_result)
                     
                 else:
                     print(f"Did not find feasible solution: {pid} (seed={run_seed})")
@@ -243,7 +202,6 @@ class Runner(BaseRunner):
                 self._save_frontier(pid, run_seed, approx_pf, sols_save_path_run)
                 self._save_stats(
                     pid,
-                    cardinality_result,
                     time_taken,
                     n_approx_pf,
                     sols_save_path_run,

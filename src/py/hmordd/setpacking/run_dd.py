@@ -1,12 +1,11 @@
 import json
-from pprint import pprint
 
 import hydra
 import numpy as np
 import pandas as pd
 from hmordd import Paths
 from hmordd.common.base_runner import BaseRunner
-from hmordd.common.utils import MetricCalculator, append_pf_dom_path
+from hmordd.common.utils import append_pf_dom_path
 from hmordd.setpacking.dd import DDManagerFactory
 from hmordd.setpacking.utils import get_instance_data
 
@@ -14,8 +13,6 @@ from hmordd.setpacking.utils import get_instance_data
 class Runner(BaseRunner):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.metric_calculator = MetricCalculator(cfg.prob.n_objs)
-
         self._set_memory_limit()
 
     def _get_save_path(self, save_type):
@@ -64,17 +61,10 @@ class Runner(BaseRunner):
         except Exception:
             return -2
 
-    def _save_frontier_stats(self, pid, dd_manager, sols_save_path, cardinality_result):
+    def _save_frontier_stats(self, pid, dd_manager, sols_save_path):
                 
         stats = {
             "pid": [pid],
-            "n_exact_pf": [cardinality_result.get("n_exact_pf")],
-            "n_approx_pf": [cardinality_result.get("n_approx_pf")],
-            "cardinality": [cardinality_result.get("cardinality")],
-            "precision": [cardinality_result.get("precision")],
-            "cardinality_raw": [cardinality_result.get("cardinality_raw")],
-            "igd": [cardinality_result.get("igd")],
-            "igd_raw": [cardinality_result.get("igd_raw")],
             "build_time": [dd_manager.time_build],
             "frontier_time": [dd_manager.time_frontier],
             "total_time": [self._sum_times(dd_manager.time_build, dd_manager.time_frontier)],
@@ -115,7 +105,7 @@ class Runner(BaseRunner):
         except Exception as exc:
             print(f"Error saving DD for PID {pid}: {exc}")
 
-    def save(self, pid, dd_manager, cardinality_result):
+    def save(self, pid, dd_manager):
         dds_save_path = self._get_save_path("dds")
         sols_save_path = self._get_save_path("sols")
         dds_path_run = dds_save_path
@@ -128,26 +118,12 @@ class Runner(BaseRunner):
                 
         self._save_dd_stats(pid, dd_manager, dds_path_run)
         self._save_frontier(pid, dd_manager, sols_path_run)
-        self._save_frontier_stats(pid, dd_manager, sols_path_run, cardinality_result)
+        self._save_frontier_stats(pid, dd_manager, sols_path_run)
         self._maybe_save_dd(pid, dd_manager, dds_path_run)
 
     def worker(self, rank):
         for pid in range(self.cfg.from_pid + rank, self.cfg.to_pid, self.cfg.n_processes):
             print(f"Processing PID: {pid} on rank {rank}")
-            if self.cfg.dd.type == "restricted":
-                # Only process if exact Pareto front is available
-                exact_sol_path = Paths.sols / self.cfg.prob.name / self.cfg.prob.size
-                exact_sol_path = exact_sol_path / self.cfg.split / "exact"
-                exact_sol_path = append_pf_dom_path(exact_sol_path, self.cfg, include_dominance=True)
-                exact_sol_path = exact_sol_path / f"{pid}.npy"
-                exact_pf = None
-                try:
-                    exact_pf = np.load(exact_sol_path)
-                except Exception as e:
-                    print(f"Error loading exact Pareto front for PID {pid}: {e}")
-                if exact_pf is None:
-                    continue
-                
             inst = get_instance_data(self.cfg.prob.name, self.cfg.prob.size, self.cfg.split, self.cfg.seed, pid)
 
             dd_manager = DDManagerFactory.create_dd_manager(self.cfg)
@@ -155,16 +131,7 @@ class Runner(BaseRunner):
             dd_manager.build_dd()
             dd_manager.compute_frontier(self.cfg.prob.pf_enum_method, time_limit=self.cfg.time_limit)
 
-            approx_pf = dd_manager.frontier
-            if self.cfg.dd.type == "exact":
-                exact_pf = approx_pf
-                
-            cardinality_result = self.metric_calculator.compute(
-                true_pf=exact_pf,
-                approx_pf=approx_pf,
-            )
-            print(cardinality_result)                
-            self.save(pid, dd_manager, cardinality_result)
+            self.save(pid, dd_manager)
 
 @hydra.main(config_path="./configs", config_name="run_dd.yaml", version_base="1.2")
 def main(cfg):
